@@ -1,73 +1,60 @@
 ---
 name: markdown-to-html
-description: Converts a hardened markdown spec file into a polished, self-contained HTML document with dark theme, severity badges, sidebar navigation, and Mermaid diagram support. Build output incrementally in chunks to avoid malformed markup.
+description: Converts a hardened markdown spec file into a polished, self-contained HTML document. The LLM generates the HTML directly with creative visual judgment — adding color-coded badges, sidebar navigation, visual callouts, diagram blocks, and readability optimizations for maximum human scanability.
 input:
   input_file: (Required) Path to the source markdown spec file (e.g., docs/specs/FEATURE.md)
   output_file: (Optional) Path for the HTML output. Defaults to same directory as input with .html extension.
 ---
 
-# Markdown-to-HTML Skill — Chunked Build Pipeline
+# Markdown-to-HTML Skill — Creative Chunked Build
 
 ## Goal
 
-Convert a hardened markdown specification into a polished, self-contained HTML document optimized for human readability and quick comprehension. The output uses a dark theme, severity badges, sidebar navigation, syntax-highlighted code blocks, styled tables, and Mermaid diagram rendering.
+Convert a hardened markdown specification into a **visually rich, immediately digestible** self-contained HTML document. You are not doing a mechanical conversion — you are designing a reading experience. Every visual decision should make the document more scannable, more memorable, and faster to understand for human reviewers.
 
-**Mindset**: You are building a reading experience — not just converting text to markup. Every visual choice must improve scan-ability and reduce cognitive load for the reader reviewing security-critical specifications.
-
----
-
-## Phase 1: Validate Input
-
-### 1. Read and Verify the Source File
-
-```bash
-# Confirm the markdown file exists and is readable
-cat "$input_file" | head -20
-wc -l "$input_file"
-```
-
-### 2. Determine Output Path
-
-- If `output_file` is provided, use it directly.
-- Otherwise, derive from input: `docs/specs/FEATURE.md` → `docs/specs/FEATURE.html`
-
-### 3. Pre-scan the Document
-
-Before conversion, scan for key patterns to understand what rendering features are needed:
-
-```bash
-# Count structural elements
-echo "Headings: $(grep -c '^#' "$input_file")"
-echo "Code blocks: $(grep -c '^\`\`\`' "$input_file")"
-echo "Tables: $(grep -c '|' "$input_file")"
-echo "Mermaid: $(grep -c 'mermaid' "$input_file")"
-echo "Severity tags: $(grep -coE '\[(CRITICAL|WARNING|INFO)\]' "$input_file")"
-echo "Blockquotes: $(grep -c '^>' "$input_file")"
-```
+**Core mindset**: The reader is glancing at this under time pressure — likely reviewing a security-critical spec. They need to find risk signals in seconds, navigate sections without scrolling aimlessly, and absorb structure at a glance. Make that effortless.
 
 ---
 
-## Phase 2: Run the Converter (Chunked Build)
+## Phase 1: Read & Analyze the Source
 
-The converter script builds the HTML in **7 sequential chunks**. This prevents single-shot generation failures where long documents lose sections or produce malformed markup.
+### 1. Load the Markdown File
 
-### Execute the Converter
+Read `input_file` completely. Understand the full document before generating any HTML.
 
-```bash
-node skills/markdown-to-html/convert.js "$input_file" "$output_file"
-```
+### 2. Pre-Scan — Mental Map of Rendering Needs
 
-If `node` is unavailable, fall back to manual chunked construction following Phase 3 below.
+As you read, note every feature that needs special treatment:
+
+| Pattern | Rendering Treatment |
+|---------|-------------------|
+| `[CRITICAL]` tags | Red badge with glow — must be impossible to miss |
+| `[WARNING]` tags | Amber badge with warm tint |
+| `[INFO]` tags | Blue badge with cool tint |
+| `> blockquotes` | Callout boxes with left-border accent |
+| Fenced code blocks (```) | Dark background, monospace, scrollable, language label |
+| Mermaid blocks (` ```mermaid `) | `<pre class="mermaid">` — renders via CDN script |
+| Pipe tables | Styled HTML table with sticky header, alternating rows |
+| H1 heading | Hero section — large title, subtitle if present |
+| H2 headings | Section dividers with visual weight + anchor IDs |
+| H3+ headings | Sub-sections nested under H2 sections |
+
+### 3. Determine Output Path
+
+- If `output_file` provided → use it
+- Otherwise: `docs/specs/FEATURE.md` → `docs/specs/FEATURE.html`
 
 ---
 
-## Phase 3: Manual Chunked Build (Fallback)
+## Phase 2: Build HTML in Chunks — DO NOT Skip This Rule
 
-If the script cannot run, construct the HTML manually in chunks. Write each chunk sequentially, appending to the output file.
+**Critical**: Generate the HTML in **sequential chunks**. Write each chunk, then move to the next. Do NOT attempt to output the entire document in a single response — long single-shot generation drops sections and produces malformed markup.
 
-### Chunk 1: Shell — CSS Variables, Dark Theme, Typography
+### Chunk 1: Shell — `<head>` with CSS, Opening Body
 
-Write the document shell with embedded CSS. Key design tokens:
+Generate the complete `<head>` and opening structure. Embed **all CSS inline** (no external stylesheets). 
+
+#### Required CSS Design Tokens
 
 ```css
 :root {
@@ -76,6 +63,7 @@ Write the document shell with embedded CSS. Key design tokens:
   --bg-tertiary: #1c2128;
   --text-primary: #e6edf3;
   --text-secondary: #8b949e;
+  --text-muted: #6e7681;
   --border-color: #30363d;
   --accent-blue: #58a6ff;
   --accent-red: #f85149;
@@ -83,117 +71,330 @@ Write the document shell with embedded CSS. Key design tokens:
   --accent-green: #3fb950;
   --accent-purple: #bc8cff;
   --code-bg: #161b22;
-  --font-stack: system-ui, -apple-system, 'Segoe UI', Inter, sans-serif;
+  --font-stack: system-ui, -apple-system, 'Segoe UI', Inter, Roboto, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-  --max-width: 72ch;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-stack);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  font-size: 16px;
+}
+
+.spec-doc {
+  max-width: 85ch;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 3rem;
+}
+
+.spec-doc > .content-area { min-width: 0; }
+
+/* Responsive: collapse sidebar on narrower screens */
+@media (max-width: 900px) {
+  .spec-doc { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
 }
 ```
 
-Required body structure:
+#### Required Layout Structure
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>[Document Title]</title>
+  <title>[Doc Title]</title>
   <style>
-    /* All CSS embedded here */
+    /* ALL CSS HERE */
   </style>
 </head>
 <body>
-  <main class="spec-doc">
+<main class="spec-doc">
+
+<nav class="sidebar" id="toc">
+  <!-- populated in Chunk 2 -->
+</nav>
+
+<div class="content-area">
+  <!-- content populates in Chunks 3-6 -->
+</div>
+
+</main>
 ```
 
-### Chunk 2: Table of Contents (Sidebar Navigation)
+#### CSS You MUST Include (complete list)
 
-Auto-generate from H1/H2 headings found in the document:
+1. **Typography scale**: `h1` (2.25rem, bold), `h2` (1.75rem, with top border), `h3` (1.35rem), body (1rem, line-height 1.7+)
+2. **Paragraphs**: `margin-bottom: 1.2em`, proper spacing between blocks
+3. **Horizontal rules**: Styled dividers between major sections (`border-color`, subtle)
+4. **Links**: Accent blue color, underline on hover
+5. **Inline code**: Monospace font, slight background tint, rounded corners, padding
+6. **Bold/italic**: Standard HTML semantic styling
+
+---
+
+### Chunk 2: Sidebar Navigation (Table of Contents)
+
+Generate a clickable sidebar from the H1/H2 headings. 
+
+#### Structure
 
 ```html
 <nav class="sidebar" id="toc">
-  <h2>Table of Contents</h2>
-  <ul>
-    <li><a href="#section-id">Heading Text</a></li>
-    <!-- Nested for H3+ under each H2 -->
+  <h3 class="toc-title">Contents</h3>
+  <ul class="toc-list">
+    <li><a href="#heading-slug">Heading Text</a></li>
+    <!-- H3+ items nested under their parent H2 -->
+    <li>
+      <a href="#parent-h2">Parent Section</a>
+      <ul class="toc-sublist">
+        <li><a href="#child-h3">Sub Section</a></li>
+      </ul>
+    </li>
   </ul>
 </nav>
 ```
 
-### Chunk 3: Content Sections — Convert Each H2 Section
+#### CSS for Sidebar
 
-For each top-level section (H2 heading and everything below it until the next H2):
+```css
+.sidebar {
+  position: sticky;
+  top: 2rem;
+  align-self: start;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+.toc-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.toc-list { list-style: none; }
+.toc-list li a {
+  display: block;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: all 0.15s ease;
+}
+.toc-list li a:hover {
+  color: var(--text-primary);
+  border-left-color: var(--accent-blue);
+}
+.toc-sublist { list-style: none; padding-left: 1rem; }
+```
+
+---
+
+### Chunk 3: Content Sections — The Core Document Body
+
+Convert each top-level markdown section (H2) into its own HTML `<section>`. **Build one section at a time** within this chunk.
+
+#### Section Structure
+
+Each H2 heading starts a new `<section>`:
 
 ```html
-<section id="[slugified-heading]">
-  <h2 id="[slugified-heading]">Heading Text</h2>
-  <!-- converted content -->
+<section id="slugified-heading">
+  <h2 id="slugified-heading">Section Title</h2>
+  
+  <p>Paragraph content converted from markdown.</p>
+  
+  <!-- nested elements: code blocks, tables, lists, badges -->
+  
 </section>
 ```
 
-Apply these rules for inline elements:
-- `**bold**` → `<strong>`
-- `*italic*` → `<em>`
-- `` `inline code` `` → `<code class="inline-code">`
-- `[text](url)` → `<a href="url">text</a>`
-- Paragraphs separated by blank lines → wrapped in `<p>`
+#### H1 / Hero Section
 
-### Chunk 4: Code Blocks — Syntax-Highlighted Rendering
+The top-level H1 becomes a hero banner at the very top of content:
 
-Fenced code blocks (```) render as:
+```html
+<header class="doc-header">
+  <h1 id="top">[Document Title]</h1>
+  <p class="doc-subtitle">[Any subtitle or description from the markdown]</p>
+</header>
+```
+
+CSS for hero:
+- Large font (2.5rem), bold
+- Subtle bottom border separator
+- Generous top/bottom padding (3rem+)
+
+#### Lists — Ordered and Unordered
+
+Convert markdown lists with proper nesting. Use semantic `<ol>`/`<ul>` tags. Style with adequate padding-left so nested items are clearly indented.
+
+#### Inline Formatting Rules
+
+| Markdown | HTML | Notes |
+|----------|------|-------|
+| `**text**` or `__text__` | `<strong>text</strong>` | |
+| `*text*` or `_text_` | `<em>text</em>` | |
+| `` `code` `` | `<code class="inline-code">code</code>` | Small background tint, monospace |
+| `[text](url)` | `<a href="url">text</a>` | Accent color |
+| `~~strikethrough~~` | `<del>strikethrough</del>` | Muted styling |
+
+---
+
+### Chunk 4: Code Blocks — Syntax-Highlighted Presentation
+
+Every fenced code block (```language ... ```) gets a rich card-style container.
+
+#### Structure
 
 ```html
 <div class="code-block">
   <div class="code-header">
-    <span class="lang-tag">language</span>
-    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+    <span class="lang-tag language-[lang]">[LANGUAGE]</span>
   </div>
-  <pre><code class="language-[lang]">...</code></pre>
+  <pre><code class="language-[lang]">[code content]</code></pre>
 </div>
 ```
 
-- Language tag from fence (e.g., ` ```python `) → displayed in header
-- Use monospace font (`var(--font-mono)`), background `var(--code-bg)`
-- Scrollable overflow for wide code blocks
-- If no language specified, omit the `lang-tag` span
+#### CSS Requirements for Code Blocks
+
+```css
+.code-block {
+  background: var(--code-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin: 1.5em 0;
+  overflow: hidden;
+}
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+.lang-tag {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+.code-block pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+}
+.code-block code {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+```
+
+#### Creative Enhancements You Should Add
+
+- **Color-coded language tags**: Different accent colors for `python` (green), `javascript`/`typescript` (yellow), `bash`/`shell` (orange), `json` (blue)
+- If the code block is particularly long (>30 lines), consider adding a visual line-count indicator in the header
+
+---
 
 ### Chunk 5: Tables & Mermaid Diagrams
 
-**Tables** — Convert markdown pipe tables to styled HTML:
+#### Styled Tables
+
+Convert pipe tables into rich HTML tables:
 
 ```html
 <div class="table-wrapper">
   <table>
     <thead>
       <tr>
-        <th>Header 1</th>
-        <th>Header 2</th>
+        <th scope="col">Header 1</th>
+        <th scope="col">Header 2</th>
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>Data</td>
-        <td>Data</td>
+      <tr class="row-alt">
+        <td>Data cell</td>
+        <td>Data cell</td>
       </tr>
     </tbody>
   </table>
 </div>
 ```
 
-**Mermaid Diagrams** — Wrap in `<pre class="mermaid">`:
+#### Table CSS
+
+```css
+.table-wrapper {
+  margin: 1.5em 0;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+thead th {
+  background: var(--bg-secondary);
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-color);
+  position: sticky;
+  top: 0;
+}
+tbody td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+tbody tr:hover { background: rgba(88, 166, 255, 0.04); }
+tbody tr.row-alt { background: rgba(255,255,255, 0.015); }
+```
+
+#### Mermaid Diagrams
+
+Wrap ` ```mermaid ` blocks:
 
 ```html
 <div class="diagram-block">
-  <div class="diagram-header">Diagram</div>
+  <div class="diagram-header">📊 Diagram</div>
   <pre class="mermaid">
-    graph TD
-      A --> B
+    [mermaid source code]
   </pre>
 </div>
 ```
 
-### Chunk 6: Severity Badges & Callouts
+CSS:
+- Container with dark background, border-radius, margin
+- The `<pre class="mermaid">` renders via CDN script
+- If mermaid content is complex/wide, add `overflow-x: auto` on container
 
-**Severity Tags** — Replace inline `[CRITICAL]`, `[WARNING]`, `[INFO]` with styled badges:
+---
+
+### Chunk 6: Severity Badges & Callouts — Visual Risk Signals
+
+This chunk adds the finishing visual touches that make risk instantly scannable.
+
+#### Severity Badge Rendering
+
+Replace every `[CRITICAL]`, `[WARNING]`, `[INFO]` in the document with styled badge spans:
 
 ```html
 <span class="badge badge-critical">CRITICAL</span>
@@ -201,93 +402,190 @@ Fenced code blocks (```) render as:
 <span class="badge badge-info">INFO</span>
 ```
 
-CSS requirements:
-- `badge-critical`: Red background (`#da3633`), text glow effect, subtle pulse animation option
-- `badge-warning`: Amber background (`#bb8009`), warm tint
-- `badge-info`: Blue background (`#1f6feb`), cool tint
-- All badges: rounded corners (6px), padding (2px 8px), uppercase, bold, slightly smaller font
+#### Badge CSS — MUST Be Visually Prominent
 
-**Blockquotes / Callouts** — Render as distinct callout boxes:
+```css
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+}
+
+.badge-critical {
+  background: #da3633;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(248, 81, 73, 0.5);
+}
+
+.badge-warning {
+  background: #bb8009;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(210, 153, 34, 0.35);
+}
+
+.badge-info {
+  background: #1f6feb;
+  color: #fff;
+  box-shadow: 0 0 6px rgba(88, 166, 255, 0.3);
+}
+```
+
+#### Blockquote / Callout Boxes
+
+Render `> blockquotes` as distinct callout containers:
 
 ```html
 <blockquote class="callout">
-  <!-- converted quote content -->
+  <p>[converted content]</p>
 </blockquote>
 ```
 
-CSS: Left border accent (4px solid `var(--accent-blue)`), background tint (`rgba(88, 166, 255, 0.1)`), padding, margin.
+If the blockquote starts with specific keywords, apply a themed variant:
 
-### Chunk 7: Close Tags, Add Footer, Validate
+| Keyword in blockquote | Variant class | Left border color | Background tint |
+|----------------------|---------------|-------------------|-----------------|
+| `> **Note**:` or `> Note:` | `.callout-note` | `var(--accent-blue)` | `rgba(88,166,255,0.06)` |
+| `> **Warning**:` or `> Warning:` | `.callout-warning` | `var(--accent-amber)` | `rgba(210,153,34,0.06)` |
+| `> **Important**:` or `> Important:` | `.callout-important` | `var(--accent-red)` | `rgba(248,81,73,0.06)` |
+| `> **Tip**:` or `> Tip:` | `.callout-tip` | `var(--accent-green)` | `rgba(63,185,80,0.06)` |
 
-Close the document structure:
+Default callouts (no keyword match) use blue accent.
 
-```html
-  </main>
-  <footer>
-    <p>Generated from markdown spec on [DATE]</p>
-  </footer>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>
-    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
-  </script>
-</body>
-</html>
+```css
+.callout {
+  border-left: 4px solid var(--accent-blue);
+  background: rgba(88, 166, 255, 0.06);
+  padding: 1rem 1.25rem;
+  margin: 1.2em 0;
+  border-radius: 0 8px 8px 0;
+}
+.callout p { margin: 0; color: var(--text-secondary); }
+.callout strong { color: var(--text-primary); }
 ```
 
 ---
 
-## Phase 4: Validation Checklist
+### Chunk 7: Close Document + Mermaid Script + Validate
 
-After the HTML file is complete (whether via script or manual build), verify:
+#### Footer and Script Injection
 
-### 1. Structural Integrity
+```html
+<footer class="doc-footer">
+  <p>Generated from markdown specification on [CURRENT DATE]</p>
+</footer>
 
-```bash
-# Count opening vs closing tags
-echo "Sections: $(grep -c '<section' "$output_file") open, $(grep -c '</section>' "$output_file") close"
-echo "Divs: $(grep -oc '<div' "$output_file") open, $(grep -oc '</div>' "$output_file") close"
-echo "Main: $(grep -c '<main' "$output_file") open, $(grep -c '</main>' "$output_file") close"
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    securityLevel: 'loose'
+  });
+</script>
+
+</body>
+</html>
 ```
 
-### 2. Required Components Present
+#### Footer CSS
 
-```bash
-# Verify Mermaid initialization
-grep -q 'mermaid.initialize' "$output_file" && echo "✅ Mermaid init found" || echo "❌ Missing Mermaid init"
-
-# Verify severity badges exist if source had them
-grep -q 'badge-critical\|badge-warning\|badge-info' "$output_file" && echo "✅ Severity badges present" || echo "⚠️  No severity badges (may not be needed)"
-
-# Verify table of contents exists
-grep -q '<nav.*sidebar' "$output_file" && echo "✅ Sidebar navigation found" || echo "❌ Missing sidebar navigation"
-
-# Verify dark theme CSS variables
-grep -q 'bg-primary.*0d1117' "$output_file" && echo "✅ Dark theme defined" || echo "❌ Missing dark theme"
+```css
+.doc-footer {
+  max-width: 85ch;
+  margin: 3rem auto 2rem;
+  padding: 1.5rem 1.5rem 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border-color);
+}
 ```
 
-### 3. Visual Verification
+#### Post-Generation Validation
 
-Open the output file in a browser and confirm:
-- [ ] Dark theme renders correctly with high-contrast text
-- [ ] Sidebar navigation is visible and links scroll to sections
-- [ ] Code blocks have dark backgrounds with monospace font
-- [ ] Tables render with borders and alternating rows
-- [ ] Severity badges are color-coded and visually prominent
-- [ ] Callout boxes have left border accent and background tint
-- [ ] Mermaid diagrams render (if mermaid blocks exist)
-- [ ] No horizontal scroll on normal viewport widths
-- [ ] Typography is readable with proper line-height and max-width
+After writing the final chunk, verify the output:
+
+```bash
+# Tag balance check
+echo "=== Tag Balance ==="
+echo "sections: $(grep -c '<section' OUTPUT) open / $(grep -c '</section>' OUTPUT) close"
+echo "divs: $(grep -oc '<div' OUTPUT) open / $(grep -oc '</div>' OUTPUT) close"
+echo "main: $(grep -c '<main' OUTPUT) open / $(grep -c '</main>' OUTPUT) close"
+echo "body: $(grep -c '<body' OUTPUT) open / $(grep -c '</body>' OUTPUT) close"
+echo "html: $(grep -c '<html' OUTPUT) open / $(grep -c '</html>' OUTPUT) close"
+
+# Required components
+grep -q 'mermaid.initialize' OUTPUT && echo "✅ Mermaid init" || echo "❌ No Mermaid init"
+grep -q '<nav.*sidebar' OUTPUT && echo "✅ Sidebar nav" || echo "❌ No sidebar"
+grep -q 'bg-primary.*0d1117\|:root' OUTPUT && echo "✅ CSS variables" || echo "❌ No dark theme vars"
+
+# Badge classes (only if source had severity tags)
+grep -c 'badge-' OUTPUT | xargs -I{} echo "Badge elements: {}"
+
+echo "File size: $(wc -c < OUTPUT) bytes, $(wc -l < OUTPUT) lines"
+```
+
+If any tag counts don't match, inspect and fix the mismatched region.
+
+---
+
+## Phase 3: Visual Verification
+
+Open the output HTML file in a browser and confirm each criterion:
+
+- [ ] **Dark theme**: Background is dark (#0d1117), text is high-contrast white
+- [ ] **Typography**: Readable font sizes, proper line-height (1.6+), max-width ~85ch
+- [ ] **Sidebar nav**: Sticky sidebar with clickable TOC links, smooth scroll to sections
+- [ ] **Hero header**: H1 renders as prominent document title
+- [ ] **Code blocks**: Dark background (#161b22), monospace font, scrollable overflow, language labels
+- [ ] **Tables**: Bordered cells, sticky headers, alternating row backgrounds, hover states
+- [ ] **Severity badges**: CRITICAL (red/glow), WARNING (amber), INFO (blue) — visually pop from text
+- [ ] **Callouts**: Blockquotes render as left-bordered boxes with background tint
+- [ ] **Mermaid diagrams**: Render correctly (if any exist in source)
+- [ ] **Responsive**: No horizontal scroll on normal viewport; sidebar collapses on narrow screens
+- [ ] **No broken links**: All anchor IDs match between TOC and section headings
+
+---
+
+## Creative Design Guidance — Use Your Judgment
+
+You are encouraged to go beyond the baseline requirements. Consider adding:
+
+### Visual Enhancements (choose what fits the document)
+
+- **Section progress indicator**: Subtle colored left-border on sections that changes per depth
+- **Abbreviation / acronym tooltips**: For technical terms, add `<abbr title="...">` where helpful
+- **Key metrics callout**: If a section contains critical numbers or thresholds, visually highlight them
+- **Emoji icons in headings**: Small contextual emoji before section titles (🔐 for security, 📊 for data, ⚙️ for config) — use sparingly and tastefully
+- **Status chips**: For sections that describe requirements status, add visual status indicators
+- **Summary box at top**: If the document is long (>10 sections), consider a "key takeaways" summary block after the hero
+
+### What NOT to do
+
+- Do NOT add JavaScript beyond Mermaid CDN init (no frameworks, no analytics)
+- Do NOT load external fonts or assets (keep self-contained)
+- Do NOT alter the semantic meaning of any content
+- Do NOT skip sections — every H2 section must be converted
+- Do NOT use inline styles where CSS classes work (keep HTML clean)
 
 ---
 
 ## Quick-Start Checklist
 
-1. ✅ Read and validate source markdown file
-2. ✅ Determine output path
-3. ✅ Pre-scan document for rendering features needed
-4. ✅ Run `node convert.js input.md output.html` (or build manually in 7 chunks)
-5. ✅ Validate tag balance, Mermaid init, badges, sidebar
-6. ✅ Open in browser for visual confirmation
-7. ✅ Report completion: file path, line count, features detected
+1. ✅ Read full markdown source file
+2. ✅ Analyze: note headings, code blocks, tables, badges, callouts, mermaid
+3. ✅ **Chunk 1**: Write `<head>` + complete embedded CSS + opening body structure
+4. ✅ **Chunk 2**: Generate sidebar navigation from H1/H2 headings
+5. ✅ **Chunk 3**: Convert each H2 section into `<section>` blocks (one at a time)
+6. ✅ **Chunk 4**: Render all code blocks with styled containers
+7. ✅ **Chunk 5**: Convert tables + Mermaid diagram blocks
+8. ✅ **Chunk 6**: Apply severity badges (`[CRITICAL]`/`[WARNING]`/`[INFO]`) + style callouts
+9. ✅ **Chunk 7**: Close all tags, add `<footer>`, inject Mermaid CDN script
+10. ✅ Validate: tag balance check, Mermaid init present, visual inspection in browser
 
-**Golden rules**: Build in chunks — never single-shot. Dark theme mandatory. Severity badges must pop. Tables must be readable. All sections must have anchor IDs. Mermaid must initialize with dark theme.
+**Golden rules**: Chunked build always. Creative visual judgment welcomed and expected. Severity badges must be impossible to miss. Dark theme mandatory. Every section gets an anchor ID. Zero external dependencies beyond Mermaid CDN.
