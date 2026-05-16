@@ -1,0 +1,25 @@
+{
+  "feature": "dangergate-popup",
+  "startedAt": 1778900981842,
+  "completedAt": 1778909625830,
+  "durationMs": 8643988,
+  "phases": [
+    "spec",
+    "redteam",
+    "harden",
+    "render",
+    "implement",
+    "review"
+  ],
+  "phaseDurations": {
+    "spec": 1778901405627,
+    "redteam": 1778901791121,
+    "harden": 1778902705642,
+    "render": 1778904433139,
+    "implement": 1778905918057,
+    "review": 1778909625828
+  },
+  "reviewIterations": 0,
+  "phaseAttempts": 0,
+  "gateCount": 6
+}
