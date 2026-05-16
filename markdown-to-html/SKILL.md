@@ -86,20 +86,41 @@ body {
 }
 
 .spec-doc {
-  max-width: 85ch;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 2rem 3rem;
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 3rem;
 }
 
-.spec-doc > .content-area { min-width: 0; }
+.spec-doc > .content-area {
+  min-width: 0;
+  max-width: 90ch;
+}
 
-/* Responsive: collapse sidebar on narrower screens */
-@media (max-width: 900px) {
-  .spec-doc { grid-template-columns: 1fr; }
+/* On very wide screens, allow content to expand but keep reading-friendly line length */
+@media (min-width: 1400px) {
+  .spec-doc > .content-area {
+    max-width: none;
+  }
+}
+
+/* Tablet: collapse sidebar, full single column */
+@media (max-width: 1100px) {
+  .spec-doc {
+    grid-template-columns: 1fr;
+    padding: 2rem 2rem;
+  }
   .sidebar { display: none; }
+}
+
+/* Mobile: tighter padding */
+@media (max-width: 600px) {
+  .spec-doc {
+    padding: 1.5rem 1rem;
+  }
 }
 ```
 
@@ -129,6 +150,14 @@ body {
 
 </main>
 ```
+
+#### Responsive Layout Requirements
+
+• The `.spec-doc` wrapper must use `width: 100%` — no fixed max-width on the outer container. It should span the full viewport width.
+• Content line length for readability is controlled at the `.content-area` level with `max-width: 90ch`, NOT on the outer wrapper. This keeps paragraphs readable while still using available space.
+• Use THREE responsive breakpoints (1400px wide / 1100px tablet / 600px mobile) instead of a single one.
+• Padding scales with screen size: generous on desktop (3rem), moderate on tablet (2rem), tight on mobile (1rem).
+• Sidebar collapses to hidden at 1100px, not 900px — earlier collapse gives more content room on medium screens.
 
 #### CSS You MUST Include (complete list)
 
@@ -496,13 +525,20 @@ Default callouts (no keyword match) use blue accent.
 
 ```css
 .doc-footer {
-  max-width: 85ch;
-  margin: 3rem auto 2rem;
-  padding: 1.5rem 1.5rem 0;
+  width: 100%;
+  padding: 2rem 3rem 2rem;
   text-align: center;
   color: var(--text-muted);
   font-size: 0.85rem;
   border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 1100px) {
+  .doc-footer { padding: 2rem 2rem; }
+}
+
+@media (max-width: 600px) {
+  .doc-footer { padding: 1.5rem 1rem; }
 }
 ```
 
@@ -539,7 +575,7 @@ If any tag counts don't match, inspect and fix the mismatched region.
 Open the output HTML file in a browser and confirm each criterion:
 
 - [ ] **Dark theme**: Background is dark (#0d1117), text is high-contrast white
-- [ ] **Typography**: Readable font sizes, proper line-height (1.6+), max-width ~85ch
+- [ ] **Typography**: Readable font sizes, proper line-height (1.6+), content fills available width
 - [ ] **Sidebar nav**: Sticky sidebar with clickable TOC links, smooth scroll to sections
 - [ ] **Hero header**: H1 renders as prominent document title
 - [ ] **Code blocks**: Dark background (#161b22), monospace font, scrollable overflow, language labels
@@ -547,7 +583,7 @@ Open the output HTML file in a browser and confirm each criterion:
 - [ ] **Severity badges**: CRITICAL (red/glow), WARNING (amber), INFO (blue) — visually pop from text
 - [ ] **Callouts**: Blockquotes render as left-bordered boxes with background tint
 - [ ] **Mermaid diagrams**: Render correctly (if any exist in source)
-- [ ] **Responsive**: No horizontal scroll on normal viewport; sidebar collapses on narrow screens
+- [ ] **Responsive**: Content fills full width on wide screens; sidebar collapses at 1100px; no horizontal scroll
 - [ ] **No broken links**: All anchor IDs match between TOC and section headings
 
 ---
