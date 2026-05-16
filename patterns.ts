@@ -53,7 +53,7 @@ export const DANGEROUS_PATTERNS = [
 
   // P19-P20: Package manager global deletes
   /\bnpm\s+(uninstall|remove)\s+(-g|--global)/,   // P19
-  /\bpip\d*\s+uninstall\s+-y\b/,                 // P20 (pip3, pip3.11 etc.)
+  /\bpip\d*\s+uninstall\s+-y\b/,                 // P20 (pip, pip3 — note: pip3.11 requires custom pattern)
 
   // P21-P24: Code execution bypass patterns (added during hardening)
   /\|\s*bash\b/i,                                 // P21: pipe to bash
