@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dangergate Popup — Specification (Hardened)</title>
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #1c2128;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --border-color: #30363d;
+      --accent-blue: #58a6ff;
+      --accent-red: #f85149;
+      --accent-amber: #d29922;
+      --accent-green: #3fb950;
+      --accent-purple: #bc8cff;
+      --code-bg: #161b22;
+      --font-stack: system-ui, -apple-system, 'Segoe UI', Inter, Roboto, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-stack);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+
+    .spec-doc {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 2rem 3rem;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 3rem;
+    }
+
+    .spec-doc > .content-area {
+      min-width: 0;
+      max-width: 90ch;
+    }
+
+    @media (min-width: 1400px) {
+      .spec-doc > .content-area { max-width: none; }
+    }
+    @media (max-width: 1100px) {
+      .spec-doc { grid-template-columns: 1fr; padding: 2rem 2rem; }
+      .sidebar { display: none; }
+    }
+    @media (max-width: 600px) {
+      .spec-doc { padding: 1.5rem 1rem; }
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: sticky;
+      top: 2rem;
+      align-self: start;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
+    }
+    .toc-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .toc-list { list-style: none; }
+    .toc-list li a {
+      display: block;
+      padding: 4px 8px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .toc-list li a:hover {
+      color: var(--text-primary);
+      border-left-color: var(--accent-blue);
+    }
+    .toc-sublist { list-style: none; padding-left: 1rem; }
+
+    /* Hero */
+    .doc-header { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); }
+    .doc-header h1 { font-size: 2.5rem; font-weight: 700; line-height: 1.2; margin-bottom: 0.75rem; }
+    .doc-subtitle { color: var(--text-secondary); font-size: 1rem; }
+
+    /* Status chip */
+    .status-chip {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    .status-hardened { background: rgba(63,185,80,0.15); color: var(--accent-green); border: 1px solid rgba(63,185,80,0.3); }
+
+    /* Sections */
+    section { margin-bottom: 3rem; }
+    h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      margin-bottom: 1.2rem;
+    }
+    h3 { font-size: 1.3rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+    h4 { font-size: 1.05rem; font-weight: 600; margin: 1.2rem 0 0.5rem; color: var(--text-secondary); }
+
+    p { margin-bottom: 1.2em; color: var(--text-secondary); }
+    strong { color: var(--text-primary); }
+
+    hr { border: none; border-top: 1px solid var(--border-color); margin: 2rem 0; }
+
+    a { color: var(--accent-blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code.inline-code {
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent-purple);
+    }
+
+    del { color: var(--text-muted); text-decoration: line-through; opacity: 0.7; }
+
+    /* Lists */
+    ul, ol { margin: 1em 0; padding-left: 2rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.4em; }
+    li ul, li ol { margin: 0.3em 0; }
+
+    /* Code blocks */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin: 1.5em 0;
+      overflow: hidden;
+    }
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .lang-tag {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .language-typescript { color: #e8a628; }
+    .language-mermaid { color: var(--accent-blue); }
+    .code-block pre { margin: 0; padding: 16px; overflow-x: auto; }
+    .code-block code { font-family: var(--font-mono); font-size: 0.875rem; line-height: 1.6; color: var(--text-primary); }
+
+    /* Tables */
+    .table-wrapper { margin: 1.5em 0; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    thead th {
+      background: var(--bg-secondary);
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-color);
+      position: sticky;
+      top: 0;
+    }
+    tbody td { padding: 8px 14px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); vertical-align: top; }
+    tbody tr:hover { background: rgba(88, 166, 255, 0.04); }
+    tbody tr.row-alt { background: rgba(255,255,255, 0.015); }
+
+    /* Diagram blocks */
+    .diagram-block {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin: 1.5em 0;
+      overflow: hidden;
+    }
+    .diagram-header {
+      display: flex;
+      align-items: center;
+      padding: 8px 14px;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+    .diagram-block pre.mermaid { padding: 16px; overflow-x: auto; text-align: center; }
+    .diagram-caption { font-size: 0.85rem; color: var(--text-muted); font-style: italic; margin-top: 0.5em; padding: 0 0.5rem; }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      line-height: 1.6;
+    }
+    .badge-critical { background: #da3633; color: #fff; box-shadow: 0 0 8px rgba(248,81,73,0.5); }
+    .badge-warning { background: #bb8009; color: #fff; box-shadow: 0 0 8px rgba(210,153,34,0.35); }
+    .badge-info { background: #1f6feb; color: #fff; box-shadow: 0 0 6px rgba(88,166,255,0.3); }
+    .badge-resolved { background: rgba(63,185,80,0.15); color: var(--accent-green); border: 1px solid rgba(63,185,80,0.3); }
+    .badge-deferred { background: rgba(210,153,34,0.15); color: var(--accent-amber); border: 1px solid rgba(210,153,34,0.3); }
+
+    /* Callouts */
+    .callout {
+      border-left: 4px solid var(--accent-blue);
+      background: rgba(88,166,255,0.06);
+      padding: 1rem 1.25rem;
+      margin: 1.2em 0;
+      border-radius: 0 8px 8px 0;
+    }
+    .callout p { margin: 0; color: var(--text-secondary); }
+    .callout strong { color: var(--text-primary); }
+    .callout-note { border-left-color: var(--accent-blue); background: rgba(88,166,255,0.06); }
+    .callout-warning { border-left-color: var(--accent-amber); background: rgba(210,153,34,0.06); }
+    .callout-important { border-left-color: var(--accent-red); background: rgba(248,81,73,0.06); }
+    .callout-tip { border-left-color: var(--accent-green); background: rgba(63,185,80,0.06); }
+
+    /* Details/Summary */
+    details { margin: 1em 0; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+    summary {
+      padding: 10px 16px;
+      background: var(--bg-secondary);
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+    }
+    summary:hover { background: var(--bg-tertiary); }
+    details[open] summary { border-bottom: 1px solid var(--border-color); }
+    .details-content { padding: 12px 16px; }
+
+    /* Footer */
+    .doc-footer {
+      width: 100%;
+      padding: 2rem 3rem 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border-color);
+    }
+    @media (max-width: 1100px) { .doc-footer { padding: 2rem 2rem; } }
+    @media (max-width: 600px) { .doc-footer { padding: 1.5rem 1rem; } }
+
+    /* Section emoji icons */
+    h2::before { margin-right: 0.5em; }
+  </style>
+</head>
+<body>
+<main class="spec-doc">
+
+<nav class="sidebar" id="toc">
+  <h3 class="toc-title">Contents</h3>
+  <ul class="toc-list">
+    <li><a href="#top">Dangergate Popup</a></li>
+    <li><a href="#problem-statement">Problem Statement</a></li>
+    <li><a href="#environment-constraints">Environment Constraints</a></li>
+    <li><a href="#user-stories">User Stories</a></li>
+    <li><a href="#proposed-solution">Proposed Solution</a></li>
+    <li>
+      <a href="#pattern-reference-data-model">Pattern Reference</a>
+      <ul class="toc-sublist">
+        <li><a href="#dangerous-patterns-registry">Dangerous Patterns Registry</a></li>
+        <li><a href="#dialog-dimensions">Dialog Dimensions</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#extension-api-interface">Extension API Interface</a>
+      <ul class="toc-sublist">
+        <li><a href="#events-consumed">Events Consumed</a></li>
+        <li><a href="#ui-methods-used">UI Methods Used</a></li>
+        <li><a href="#types-imported">Types Imported</a></li>
+        <li><a href="#configuration-interface">Configuration Interface</a></li>
+      </ul>
+    </li>
+    <li><a href="#implementation-plan">Implementation Plan</a></li>
+    <li><a href="#risk-assessment">Risk Assessment</a></li>
+    <li><a href="#security--privacy">Security &amp; Privacy</a></li>
+    <li><a href="#testing-strategy">Testing Strategy</a></li>
+    <li><a href="#security-considerations">Security Considerations</a></li>
+    <li><a href="#rollout--rollback">Rollout &amp; Rollback</a></li>
+    <li><a href="#open-questions">Open Questions</a></li>
+  </ul>
+</nav>
+
+<div class="content-area">
+
+<!-- Hero -->
+<header class="doc-header">
+  <h1 id="top">Dangergate Popup — Specification <span class="status-chip status-hardened">🟢 HARDENED</span></h1>
+  <p class="doc-subtitle">Version 1.1.0 · Author: pi-coding-agent · Created: 2026-05-16 · Hardened: 2026-05-16<br>3 CRITICAL resolved, 7 WARNING (5 resolved, 2 deferred), 5 INFO acknowledged</p>
+</header>
+
+<!-- Problem Statement -->
+<section id="problem-statement">
+  <h2>🎯 Problem Statement</h2>
+  <p>Pi's coding agent executes bash commands on behalf of the LLM. Without user confirmation, a model hallucination or adversarial prompt could trigger genuinely destructive operations — disk formatting, force pushes, unconditional database deletes, recursive file removal, and more. Currently, there is <strong>no built-in safety mechanism</strong> in the tool execution pipeline to intercept and confirm such commands before they run.</p>
+  <p>The dangergate-popup extension solves this by:</p>
+  <ul>
+    <li>Intercepting <code class="inline-code">tool_call</code> events for the <code class="inline-code">bash</code> tool</li>
+    <li>Pattern-matching command strings against a curated list of dangerous operations</li>
+    <li>Presenting an overlay dialog that blocks execution until the user explicitly confirms (Y) or denies (N)</li>
+    <li>Allowing long commands to be scrolled and fully inspected before decision</li>
+  </ul>
+  <p><strong>Key metrics / evidence:</strong></p>
+  <ul>
+    <li>No existing built-in confirmation gate in Pi's tool execution pipeline</li>
+    <li>LLM-generated shell commands are a known failure surface for destructive ops</li>
+    <li>The <code class="inline-code">confirm-destructive.ts</code> example exists but only handles session-level events (clear/switch/fork), not bash commands</li>
+    <li>Manual <code class="inline-code">tool_call</code> interception requires custom extension code per user — this productizes it</li>
+  </ul>
+</section>
+
+<!-- Environment Constraints -->
+<section id="environment-constraints">
+  <h2>⚙️ Environment Constraints</h2>
+
+  <h3>Filesystem</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Path</th><th scope="col">Constraint</th><th scope="col">Impact</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td><code class="inline-code">~/.pi/agent/extensions/</code></td><td>Auto-discovery location for global extensions; writable by default</td><td>Extension file (<code class="inline-code">danger-gate.ts</code>) placed here loads automatically</td></tr>
+        <tr><td><code class="inline-code">.pi/extensions/</code></td><td>Auto-discovery location for project-local extensions; writable by default</td><td>Alternative placement for per-project gating rules</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Hardware &amp; Runtime</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Resource</th><th scope="col">Available</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td>GPU / CUDA</td><td>N/A</td><td>Extension runs in Node.js process — no GPU dependency</td></tr>
+        <tr><td>Terminal</td><td>Required (interactive)</td><td><code class="inline-code">ctx.ui.custom()</code> overlay requires an interactive TUI. No-op in <code class="inline-code">-p</code> (print) or JSON mode. Check <code class="inline-code">ctx.hasUI</code>.</td></tr>
+        <tr class="row-alt"><td>jiti</td><td>Required</td><td>Extensions loaded via jiti (TypeScript at runtime); available by default in Pi</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Network Restrictions</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Constraint</th><th scope="col">Impact</th></tr></thead>
+      <tbody>
+        <tr><td>Offline operation</td><td>Extension is fully offline — no network calls, no telemetry</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <blockquote class="callout callout-warning">
+    <p><strong>⚠️ Impact on Implementation:</strong> The extension must gracefully handle non-interactive contexts. When <code class="inline-code">ctx.hasUI</code> is <code class="inline-code">false</code> (print mode, JSON mode), the gate should either allow-through with a log or deny-by-default — this trade-off is covered in Proposed Solution below.</p>
+  </blockquote>
+</section>
+
+<!-- User Stories -->
+<section id="user-stories">
+  <h2>👤 User Stories</h2>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">#</th><th scope="col">Story</th><th scope="col">Priority</th><th scope="col">Acceptance Criteria</th></tr></thead>
+      <tbody>
+        <tr class="row-alt">
+          <td>1</td>
+          <td>As a Pi user, I want destructive bash commands to require my confirmation before execution, so that I prevent accidental data loss.</td>
+          <td><span class="badge badge-critical">High</span></td>
+          <td>A scrollable overlay dialog appears; command is blocked until Y/N response; <code class="inline-code">rm -rf /</code> style commands trigger the gate</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>As a Pi power user, I want to customize which patterns are gated, so that I can add project-specific dangerous operations (e.g., <code class="inline-code">DROP DATABASE</code>).</td>
+          <td><span class="badge badge-warning">Medium</span></td>
+          <td>Extension supports adding/removing regex patterns in <code class="inline-code">DANGEROUS_PATTERNS</code> array; no rebuild needed on <code class="inline-code">/reload</code></td>
+        </tr>
+        <tr class="row-alt">
+          <td>3</td>
+          <td>As a Pi user running headless (print mode), I want the gate to have a safe default behavior, so that non-interactive sessions don't hang indefinitely.</td>
+          <td><span class="badge badge-critical">High</span></td>
+          <td>In non-interactive mode (<code class="inline-code">ctx.hasUI === false</code>), handler checks guard BEFORE pattern matching; emits <code class="inline-code">console.warn()</code> with command + matched pattern; allows-through without hanging. This check is mandatory (<span class="badge badge-critical">CRITICAL</span> fix from red team audit).</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>As a Pi user executing long multi-line commands, I want to scroll the full command before confirming, so that I can inspect piped/chained operations fully.</td>
+          <td><span class="badge badge-warning">Medium</span></td>
+          <td>Dialog supports ↑/↓ and PgUp/PgDown scrolling; scroll position indicator shown when content exceeds viewport</td>
+        </tr>
+        <tr class="row-alt">
+          <td>5</td>
+          <td>As a Pi user, I want false-positive-free gating, so that benign commands like <code class="inline-code">rm -h</code> or <code class="inline-code">man rm</code> don't trigger unnecessary confirmations.</td>
+          <td><span class="badge badge-warning">Medium</span></td>
+          <td>Patterns exclude help flags (<code class="inline-code">-h</code>, <code class="inline-code">--help</code>); regex uses word boundaries where appropriate</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Proposed Solution -->
+<section id="proposed-solution">
+  <h2>💡 Proposed Solution</h2>
+
+  <h3>Overview</h3>
+  <p>The dangergate-popup extension subscribes to the <code class="inline-code">tool_call</code> event for the <code class="inline-code">bash</code> tool. On each bash command, it checks the command string against a set of curated dangerous-operation regex patterns. If any pattern matches, an overlay dialog is presented via <code class="inline-code">ctx.ui.custom()</code> with:</p>
+  <ul>
+    <li>A red-titled "⚠ DANGEROUS COMMAND" header</li>
+    <li>A scrollable preview pane showing the full command text (up to 16 lines)</li>
+    <li>Scroll position indicator when content exceeds viewport</li>
+    <li>Y/N confirmation prompt with keyboard navigation hints</li>
+  </ul>
+
+  <blockquote class="callout callout-important">
+    <p><strong>Mandatory non-interactive guard (<span class="badge badge-critical">CRITICAL</span> fix):</strong> Before any pattern matching or UI rendering, the handler MUST check <code class="inline-code">ctx.hasUI</code>. If <code class="inline-code">false</code> (print mode, JSON mode), skip all gating logic, emit <code class="inline-code">console.warn()</code> with command + matched pattern, and allow-through. This prevents deadlock in headless sessions.</p>
+  </blockquote>
+
+  <blockquote class="callout callout-important">
+    <p><strong>Mandatory exception handling (<span class="badge badge-critical">CRITICAL</span> fix):</strong> The <code class="inline-code">ctx.ui.custom()</code> call MUST be wrapped in try/catch. On any exception from the UI layer (TUI not initialized, theme error, rendering crash), log a warning with <code class="inline-code">console.warn("Dangergate: UI error, allowing through:", err.message)</code> and allow-through per configured non-interactive policy. This prevents gate bypass when UI fails.</p>
+  </blockquote>
+
+  <h3>Architecture Diagram</h3>
+  <div class="diagram-block">
+    <div class="diagram-header">📊 Event Flow — Architecture</div>
+    <pre class="mermaid">graph TD
+    subgraph LLM_Turn["LLM Agent Turn"]
+        A[LLM generates bash tool call] --> B[tool_execution_start event]
+        B --> C[tool_call event fires]
+    end
+
+    subgraph DangerGate["Dangergate Extension Handler"]
+        C --> D{Is bash tool?}
+        D -- No --> E[(pass through)]
+        D -- Yes --> E1{ctx.hasUI?}
+        E1 -- No --> E2[console.warn() + pass through]
+        E1 -- Yes --> F{Pattern matches dangerous list?}
+        F -- No --> E
+        F -- Yes --> G[Show overlay dialog via ctx.ui.custom (wrapped in try/catch)]
+        G --> H{User response}
+        H -- Confirm Y/Enter --> I[break loop, allow execution]
+        H -- Deny N/Esc --> J[return block:true + reason]
+        G -- UI throws --> E2
+    end
+
+    subgraph Pi_Core["Pi Core"]
+        I --> K[bash executes command]
+        J --> L[tool blocked, result recorded]
+        K --> M[tool_result event]
+        L --> M
+    end
+
+    style DangerGate fill:#fff3f3
+    style G fill:#ffcccc
+    style J fill:#ff6666,color:#ffffff</pre>
+  </div>
+  <p class="diagram-caption">Event flow through the dangergate extension during a bash tool call.</p>
+
+  <h3>Dialog Component Lifecycle</h3>
+  <div class="diagram-block">
+    <div class="diagram-header">📊 State Machine — Dialog Lifecycle</div>
+    <pre class="mermaid">stateDiagram-v2
+    [*] --> Idle
+    Idle --> DialogOpened: Dangerous command detected
+    DialogOpened --> Scrolling: User presses ↑/↓/PgUp/PgDown/Home/End
+    Scrolling --> DialogOpened: Scroll position updated
+    DialogOpened --> CommandAllowed: User presses Y or Enter
+    DialogOpened --> CommandBlocked: User presses N or Esc
+    CommandAllowed --> [*]: Command executes normally
+    CommandBlocked --> [*]: Tool call blocked, reason recorded</pre>
+  </div>
+  <p class="diagram-caption">State machine for the DangerDialog overlay component.</p>
+
+  <h3>Trade-off Analysis</h3>
+  <h4>Non-interactive Mode Policy</h4>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Aspect</th><th scope="col">Approach A — Deny-by-default</th><th scope="col">Approach B — Allow-with-log (Selected)</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td><strong>Safety</strong></td><td>✅ No command runs without explicit confirmation</td><td>Command runs in headless mode — risk of silent execution</td></tr>
+        <tr><td><strong>UX</strong></td><td>🔴 Headless sessions deadlock indefinitely</td><td>🟡 Log warning allows operator to review output post-factum</td></tr>
+        <tr class="row-alt"><td><strong>Complexity</strong></td><td>Low — same logic path</td><td>Medium — needs branching on <code class="inline-code">ctx.hasUI</code></td></tr>
+        <tr><td><strong>Real-world use</strong></td><td>Blocks all CI/CD, scripting, <code class="inline-code">-p</code> mode usage</td><td>Allows automation; safety relies on operator reviewing logs</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <blockquote class="callout callout-note">
+    <p><strong>🟢 Decision:</strong> Approach B (Allow-with-log) for non-interactive modes — the extension should not break headless workflows. A <code class="inline-code">console.warn()</code> is emitted with the matched command and pattern.</p>
+  </blockquote>
+  <blockquote class="callout callout-warning">
+    <p><strong>⚠️ Red team hardening note:</strong> The <code class="inline-code">ctx.hasUI</code> guard check MUST be placed before any pattern matching or UI calls. Without it, non-interactive modes will deadlock. Additionally, Pi's fail-safe behavior for <code class="inline-code">tool_call</code> errors ("errors block the tool") provides a safety net — unhandled exceptions in the handler result in tool blocking rather than pass-through. However, explicit try/catch around <code class="inline-code">ctx.ui.custom()</code> is still required for graceful degradation and user visibility into failures.</p>
+  </blockquote>
+
+  <h4>Pattern Management</h4>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Aspect</th><th scope="col">Hardcoded patterns</th><th scope="col">Configurable via settings.json (Selected)</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td><strong>Flexibility</strong></td><td>🔴 Users must edit source to add/remove patterns</td><td>✅ Patterns editable without touching code</td></tr>
+        <tr><td><strong>Safety</strong></td><td>✅ Fixed set reviewed and tested</td><td>🟡 User misconfiguration could widen or narrow scope</td></tr>
+        <tr class="row-alt"><td><strong>Complexity</strong></td><td>Low</td><td>Medium — needs settings loading, validation, merge with defaults</td></tr>
+        <tr><td><strong>Maintainability</strong></td><td>Medium — requires extension update for pattern changes</td><td>✅ Operators control their own risk profile</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <blockquote class="callout callout-note">
+    <p><strong>🟢 Decision:</strong> Configurable patterns via a dedicated config mechanism. The <code class="inline-code">DANGEROUS_PATTERNS</code> array in the source serves as default; a user-level config (e.g., <code class="inline-code">~/.pi/agent/dangergate.json</code>) or <code class="inline-code">settings.json</code> override can add/remove patterns. This is implemented in Phase 2.</p>
+  </blockquote>
+</section>
+
+<!-- Pattern Reference -->
+<section id="pattern-reference-data-model">
+  <h2>📊 Pattern Reference (Data Model)</h2>
+
+  <h3 id="dangerous-patterns-registry">Dangerous Patterns Registry</h3>
+  <p>Each entry is a JavaScript <code class="inline-code">RegExp</code> instance. The command string is tested against each pattern; the <strong>first match</strong> triggers the dialog (no need to check remaining patterns).</p>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">#</th><th scope="col">Category</th><th scope="col">Pattern</th><th scope="col">Matches</th><th scope="col">Excludes</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td>P1</td><td>File deletion</td><td><code class="inline-code">\brm\s+(?!(-h\|--help)\b)</code></td><td><code class="inline-code">rm -rf /</code>, <code class="inline-code">rm file.txt</code></td><td><code class="inline-code">rm -h</code>, <code class="inline-code">rm --help</code></td></tr>
+        <tr><td>P2</td><td>File deletion</td><td><code class="inline-code">\bunlink\b</code></td><td><code class="inline-code">unlink file.txt</code></td><td>—</td></tr>
+        <tr class="row-alt"><td>P3</td><td>Secure deletion</td><td><code class="inline-code">/\bshred\b/</code></td><td><code class="inline-code">shred -u secret.dat</code></td><td><code class="inline-code">unshred</code>, <code class="inline-code">myshredder</code> <span style="color:var(--accent-green)">✅ HARDENED</span></td></tr>
+        <tr><td>P4</td><td>Disk formatting</td><td><code class="inline-code">\bmkfs\b</code></td><td><code class="inline-code">mkfs.ext4 /dev/sda1</code></td><td>—</td></tr>
+        <tr class="row-alt"><td>P5</td><td>Raw disk writes</td><td><code class="inline-code">/\bdd\s+if=/</code></td><td><code class="inline-code">dd if=/dev/sda of=backup.img</code></td><td><code class="inline-code">badd if=</code>, <code class="inline-code">grep -r "dd if=" src/</code> <span style="color:var(--accent-green)">✅ HARDENED</span></td></tr>
+        <tr><td>P6</td><td>File viewing</td><td><code class="inline-code">\bfatcat\b</code></td><td><code class="inline-code">fatcat /dev/sda1</code></td><td>—</td></tr>
+        <tr class="row-alt"><td>P7</td><td>DB destructive</td><td><code class="inline-code">DROP\s+(TABLE|DATABASE|SCHEMA|INDEX)\b/i</code></td><td><code class="inline-code">DROP TABLE users</code>, <code class="inline-code">DROP DATABASE prod</code></td><td><code class="inline-code">drop</code> as noun</td></tr>
+        <tr><td>P8</td><td>DB destructive</td><td><code class="inline-code">TRUNCATE\s+TABLE\b/i</code></td><td><code class="inline-code">TRUNCATE TABLE logs</code></td><td>—</td></tr>
+        <tr class="row-alt"><td>P9</td><td>DB destructive</td><td><code class="inline-code">ALTER\s+TABLE.*DROP\b/i</code></td><td><code class="inline-code">ALTER TABLE users DROP COLUMN age</code></td><td>—</td></tr>
+        <tr><td>P10</td><td>DB destructive (no WHERE)</td><td><code class="inline-code">DELETE\s+FROM\b(?!\s+\w+\s+WHERE)/i</code></td><td><code class="inline-code">DELETE FROM users</code> (no WHERE)</td><td><code class="inline-code">DELETE FROM users WHERE id=1</code></td></tr>
+        <tr class="row-alt"><td>P11</td><td>System-level</td><td><code class="inline-code">\bsudo\s+/m</code></td><td><code class="inline-code">sudo apt purge nginx</code></td><td>—</td></tr>
+        <tr><td style="color:var(--text-muted)"><del>~~P12~~</del></td><td style="color:var(--text-muted)"><del>Editor force-quit</del></td><td><strong style="color:var(--text-muted)">REMOVED</strong></td><td colspan="2" style="color:var(--text-muted)">vim <code class="inline-code">:wq!</code> is non-destructive in bash context; adds noise without safety value (<span style="color:var(--accent-green)">HARDENED</span>)</td></tr>
+        <tr class="row-alt"><td>P13</td><td>FS repair</td><td><code class="inline-code">/\bfsck\b/</code></td><td><code class="inline-code">fsck /dev/sda1</code></td><td>—</td></tr>
+        <tr><td>P14</td><td>Disk partitioning</td><td><code class="inline-code">\bfdisk\b</code></td><td><code class="inline-code">fdisk /dev/sda</code></td><td>—</td></tr>
+        <tr class="row-alt"><td>P15</td><td>Partition editor</td><td><code class="inline-code">\bparted\b</code></td><td><code class="inline-code">parted /dev/sda</code></td><td>—</td></tr>
+        <tr><td>P16</td><td>Git force push</td><td><code class="inline-code">git\s+push\s+--force\b/i</code></td><td><code class="inline-code">git push --force</code>, <code class="inline-code">git push --force-with-lease</code></td><td><code class="inline-code">git push origin main</code></td></tr>
+        <tr class="row-alt"><td>P17</td><td>Git force clean</td><td><code class="inline-code">git\s+clean\s+-fd\b/i</code></td><td><code class="inline-code">git clean -fd</code></td><td><code class="inline-code">git clean -n</code> (dry run)</td></tr>
+        <tr><td>P18</td><td>Git hard reset</td><td><code class="inline-code">git\s+reset\s+--hard\b</code></td><td><code class="inline-code">git reset --hard HEAD~1</code></td><td><code class="inline-code">git reset HEAD~1</code> (soft)</td></tr>
+        <tr class="row-alt"><td>P19</td><td>NPM global remove</td><td><code class="inline-code">\bnpm\s+(uninstall|remove)\s+(-g|--global)/</code></td><td><code class="inline-code">npm uninstall -g package</code></td><td><code class="inline-code">npm uninstall package</code></td></tr>
+        <tr><td>P20</td><td>Pip force uninstall</td><td><code class="inline-code">/\bpip\s+uninstall\s+-y\b/</code></td><td><code class="inline-code">pip uninstall -y package</code></td><td><code class="inline-code">pip uninstall package</code> (interactive)</td></tr>
+        <tr class="row-alt" style="background:rgba(63,185,80,0.06)"><td>P21</td><td>Pipe to shell <span class="badge-resolved" style="font-size:0.65rem;padding:1px 6px;">HARDENED</span></td><td><code class="inline-code">/\|\s*bash\b/i</code></td><td><code class="inline-code">echo script | bash</code>, <code class="inline-code">curl ... | bash</code></td><td>—</td></tr>
+        <tr style="background:rgba(63,185,80,0.06)"><td>P22</td><td>Pipe to sh <span class="badge-resolved" style="font-size:0.65rem;padding:1px 6px;">HARDENED</span></td><td><code class="inline-code">/\|\s*sh\b/i</code></td><td><code class="inline-code">cat file | sh</code>, <code class="inline-code">wget ... | sh</code></td><td>—</td></tr>
+        <tr class="row-alt" style="background:rgba(63,185,80,0.06)"><td>P23</td><td>Eval <span class="badge-resolved" style="font-size:0.65rem;padding:1px 6px;">HARDENED</span></td><td><code class="inline-code">/\beval\b/</code></td><td><code class="inline-code">eval "rm -rf /"</code>, <code class="inline-code">eval $CMD</code></td><td>—</td></tr>
+        <tr style="background:rgba(63,185,80,0.06)"><td>P24</td><td>Python inline exec <span class="badge-resolved" style="font-size:0.65rem;padding:1px 6px;">HARDENED</span></td><td><code class="inline-code">/\bpython\d*\s+-c\b/</code></td><td><code class="inline-code">python3 -c "import os; os.system(...)"</code></td><td><code class="inline-code">python3 script.py</code> (no -c)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="dialog-dimensions">Dialog Dimensions</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Parameter</th><th scope="col">Value</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td><code class="inline-code">MAX_PREVIEW_HEIGHT</code></td><td>16 lines</td><td>Hard cap on scrollable area</td></tr>
+        <tr><td><code class="inline-code">reserved</code> (UI chrome)</td><td>7 lines</td><td>border(1) + spacer(1) + title(1) + scroll-indicator(1) + spacer(1) + hint(1) + border(1)</td></tr>
+        <tr class="row-alt"><td>Min dialog width</td><td>Auto-calculated</td><td>At least enough for title text + borders</td></tr>
+        <tr style="background:rgba(63,185,80,0.06)"><td><code class="inline-code">MAX_PREVIEW_CHARS</code></td><td>4096 (4KB)</td><td><strong>HARDENED:</strong> Hard cap on total preview characters. Prevents unbounded memory allocation during render on adversarial multi-MB commands.</td></tr>
+        <tr class="row-alt" style="background:rgba(63,185,80,0.06)"><td>Line truncation order</td><td><code class="inline-code">slice()</code> BEFORE <code class="inline-code">padEnd()</code></td><td><strong>HARDENED:</strong> Always truncate input before padding to avoid intermediate string allocation spike.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Extension API Interface -->
+<section id="extension-api-interface">
+  <h2>🔌 Extension API Interface</h2>
+
+  <h3 id="events-consumed">Events Consumed</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Event</th><th scope="col">Purpose</th><th scope="col">Return Type</th></tr></thead>
+      <tbody>
+        <tr><td>🔵 <code class="inline-code">tool_call</code></td><td>Intercept bash commands before execution</td><td><code class="inline-code">{ block: true, reason?: string }</code> or <code class="inline-code">undefined</code> (pass-through) — <strong>Verified against Pi Extension API docs</strong> (extensions.md §Tool Events, line 688)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="ui-methods-used">UI Methods Used</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Method</th><th scope="col">Purpose</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td><code class="inline-code">ctx.ui.custom&lt;boolean&gt;(componentFn, { overlay: true })</code></td><td>Render scrollable confirmation dialog as overlay</td></tr>
+        <tr><td><code class="inline-code">ctx.hasUI</code></td><td>Guard: skip gate in non-interactive modes (print/JSON)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="types-imported">Types Imported</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Import</th><th scope="col">From</th><th scope="col">Purpose</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td><code class="inline-code">ExtensionAPI</code></td><td><code class="inline-code">@earendil-works/pi-coding-agent</code></td><td>Extension factory parameter</td></tr>
+        <tr><td><code class="inline-code">isToolCallEventType</code></td><td><code class="inline-code">@earendil-works/pi-coding-agent</code></td><td>Type-narrow for bash tool events</td></tr>
+        <tr class="row-alt"><td><code class="inline-code">matchesKey</code>, <code class="inline-code">Key</code></td><td><code class="inline-code">@earendil-works/pi-tui</code></td><td>Keyboard input matching in dialog</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="configuration-interface">Configuration Interface (Phase 2)</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="lang-tag language-typescript">TypeScript</span></div>
+    <pre><code class="language-typescript">interface DangergateConfig {
+  /** Additional patterns beyond defaults (max 50 entries; each validated as compilable RegExp) */
+  additionalPatterns?: string[];
+  /** Patterns to exclude from defaults (max 50% of total allowed); indices are 1-based matching Pattern Reference # */
+  excludedPatternIndices?: number[];
+  /** Default behavior when ctx.hasUI is false: "allow-log" | "deny" | "allow-silent" */
+  nonInteractivePolicy?: NonInteractivePolicy;
+  /** Max lines for command preview (default: 16) */
+  maxPreviewHeight?: number;
+  /** Dialog timeout in ms before auto-deny (default: 60000) */
+  timeoutMs?: number;
+}
+
+type NonInteractivePolicy = "allow-log" | "deny" | "allow-silent";</code></pre>
+  </div>
+
+  <h4>Config validation rules (<span class="badge-resolved">HARDENED</span> — red team finding #9)</h4>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Rule</th><th scope="col">Enforcement</th><th scope="col">Rationale</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td><code class="inline-code">additionalPatterns</code> length ≤ 50</td><td>Reject with error on load</td><td>Prevents regex-complexity DoS; every bash call tests all patterns</td></tr>
+        <tr><td>Each pattern must compile as valid RegExp</td><td>Reject with specific error message</td><td>Invalid regex crashes handler silently</td></tr>
+        <tr class="row-alt"><td><code class="inline-code">excludedPatternIndices</code> count &lt; 50% of total active patterns</td><td>Warn (not reject) when ≥50%; log to console</td><td>Prevents complete gate neutralization via config tampering</td></tr>
+        <tr><td>At least 3 default patterns must remain active after exclusion</td><td>Enforced; reject config if fewer than 3 remain</td><td>Guarantees minimum protection against file deletion + disk ops</td></tr>
+        <tr class="row-alt"><td>Log <code class="inline-code">console.info("Dangergate: loaded config, N patterns active...")</code></td><td>Always on load</td><td>Audit trail for config state visibility</td></tr>
+        <tr><td>Invalid/missing config file</td><td>Fall back to defaults silently with <code class="inline-code">console.warn</code></td><td>Graceful degradation; never crash on bad config</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Implementation Plan -->
+<section id="implementation-plan">
+  <h2>🚀 Implementation Plan</h2>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Phase</th><th scope="col">Milestone</th><th scope="col">Complexity</th><th scope="col">Dependencies</th><th scope="col">Timeline</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td><strong>Phase 1 — Core Gate</strong></td><td><code class="inline-code">danger-gate.ts</code> with hardcoded patterns (P1-P24 including pipe/eval/python), scrollable dialog, <code class="inline-code">ctx.hasUI</code> guard, try/catch around <code class="inline-code">ctx.ui.custom()</code>, <strong>configurable timeout</strong> (default 60s auto-deny with countdown display)</td><td>🟢 Low→🟡 Medium (hardened)</td><td>Pi extension API, pi-tui</td><td>Baseline</td></tr>
+        <tr><td><strong>Phase 2 — Configuration</strong></td><td>User-configurable patterns via <code class="inline-code">~/.pi/agent/dangergate.json</code> or <code class="inline-code">settings.json</code>; non-interactive policy selection; config validation: reject invalid regexes, cap additionalPatterns at 50, warn if &gt;50% excluded, log pattern count on load</td><td>🟡 Medium (hardened)</td><td>Phase 1, <code class="inline-code">node:fs</code> for config read</td><td>Iteration 1</td></tr>
+        <tr class="row-alt"><td><strong>Phase 3 — Pattern Enhancements</strong></td><td>Severity levels per pattern (warning vs critical); matched-pattern display in dialog; exclude-list from settings</td><td>🟡 Medium</td><td>Phase 2</td><td>Iteration 2</td></tr>
+        <tr><td><strong>Phase 4 — Logging &amp; Audit</strong></td><td>Append blocked/allowed decisions to session via <code class="inline-code">pi.appendEntry()</code>; command history viewer</td><td>🟢 Low</td><td>Phase 1-3</td><td>Iteration 3</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Risk Assessment -->
+<section id="risk-assessment">
+  <h2>⚠️ Risk Assessment</h2>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">#</th><th scope="col">Risk</th><th scope="col">Likelihood</th><th scope="col">Impact</th><th scope="col">Severity</th><th scope="col">Mitigation</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td>R1</td><td>Dialog hangs indefinitely if user doesn't respond — blocks entire agent turn</td><td>Medium</td><td>High</td><td>🟡 Medium (mitigated)</td><td><strong>HARDENED:</strong> Phase 1 MUST implement configurable timeout (default: 60s) with auto-deny on expiry. Dialog hint line shows countdown when time < 15s remaining.</td></tr>
+        <tr><td>R2</td><td>Regex false negatives miss genuinely dangerous commands</td><td>Medium</td><td>High</td><td>🟡 Medium (mitigated)</td><td><strong>HARDENED:</strong> Phase 1 adds pipe-to-shell patterns, <code class="inline-code">eval\b</code>, and <code class="inline-code">python\d*\s+-c\b</code>. Known bypass vectors documented in Security Considerations.</td></tr>
+        <tr class="row-alt"><td>R3</td><td>Regex false positives block benign commands (e.g., <code class="inline-code">man rm</code>)</td><td>Low</td><td>Medium</td><td>🟡 Medium</td><td>Patterns use word boundaries (<code class="inline-code">\b</code>) and negative lookaheads; tested against common safe commands before each release</td></tr>
+        <tr><td>R4</td><td>Non-interactive mode allows destructive commands silently (Approach B trade-off)</td><td>Medium</td><td>High</td><td>🔴 High</td><td><code class="inline-code">console.warn()</code> emitted with command + pattern; configurable policy in Phase 2 lets users switch to deny-by-default for CI/CD</td></tr>
+        <tr class="row-alt"><td>R5</td><td>Long scrollable dialogs obscure context on small terminals (&lt; 80 cols)</td><td>Low</td><td>Low</td><td>🟢 Low</td><td>Dialog clamps preview height based on available width; minimal chrome (7 lines reserved)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Error Scenarios</h3>
+  <details>
+    <summary>Expand error scenarios</summary>
+    <div class="details-content">
+      <ul>
+        <li><strong><code class="inline-code">ctx.ui.custom()</code> throws (any mode):</strong> MANDATORY: The call MUST be wrapped in try/catch (<span class="badge badge-critical">CRITICAL</span> fix). On exception: log warning and allow-through per configured non-interactive policy.</li>
+        <li><strong><code class="inline-code">ctx.ui.custom()</code> throws in print mode:</strong> Guarded by <code class="inline-code">ctx.hasUI</code> check as first line of defense.</li>
+        <li><strong>Command exceeds terminal width (> 200 chars):</strong> Dialog truncates each line. <strong>HARDENED:</strong> Truncation happens BEFORE <code class="inline-code">padEnd()</code>. Hard cap on total preview characters: 4096 (4KB).</li>
+        <li><strong>Extension reload during active dialog:</strong> Dialog component instance tied to <code class="inline-code">ctx.ui.custom()</code> handle. On <code class="inline-code">/reload</code>, pi emits <code class="inline-code">session_shutdown</code>; pending custom UI torn down by TUI framework. Document that reloading with open gate is unsupported.</li>
+        <li><strong>Multiple dangerous commands in parallel tool mode:</strong> Each bash call preflighted sequentially through <code class="inline-code">tool_call</code>. Dialogs show one-at-a-time. If user denies one, remaining calls still proceed to their own checks independently.</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<!-- Security & Privacy -->
+<section id="security--privacy">
+  <h2>🔒 Security &amp; Privacy</h2>
+
+  <h3>Risks</h3>
+  <blockquote class="callout callout-important">
+    <p><strong>🔴 Regex injection via LLM-generated commands:</strong> The patterns are fixed regexes tested <em>against</em> the command string — not constructed <em>from</em> it. No injection risk in pattern matching itself.</p>
+  </blockquote>
+  <blockquote class="callout callout-important">
+    <p><strong>🔴 False sense of security:</strong> Users may assume the gate catches <em>all</em> dangerous operations. It does not — only curated patterns. A sophisticated attack could chain benign commands that don't match any pattern.</p>
+  </blockquote>
+  <blockquote class="callout callout-important">
+    <p><strong>🔴 Command obfuscation bypass:</strong> An LLM could split a dangerous command across multiple lines or use variable substitution: <code class="inline-code">CMD="rm -rf"; $CMD /</code>. The current single-string regex won't catch this.</p>
+  </blockquote>
+
+  <h3>Safeguards</h3>
+  <ul>
+    <li>🟢 <strong>Pattern review discipline:</strong> All patterns reviewed before merge; each has documented match/exclude behavior in the Pattern Reference table.</li>
+    <li>🟢 <strong>Open source auditability:</strong> Extension code is in plain TypeScript — fully auditable by users. No obfuscated or minified logic.</li>
+    <li>🟢 <strong>User-in-the-loop:</strong> Every matched command requires explicit human confirmation. No auto-approve path exists in interactive mode.</li>
+    <li>🟢 <strong>Non-interactive warn-by-default:</strong> Headless sessions log warnings, giving operators visibility into attempted dangerous operations without breaking automation.</li>
+  </ul>
+</section>
+
+<!-- Testing Strategy -->
+<section id="testing-strategy">
+  <h2>🧪 Testing Strategy</h2>
+
+  <blockquote class="callout callout-important">
+    <p><strong>🔴 Mandatory: E2E Validation Against Real Environments</strong> — Testing strategy MUST include E2E validation against real environments, NOT mocks. Mocks hide the bugs that Ralph review is supposed to find.</p>
+  </blockquote>
+
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th scope="col">Layer</th><th scope="col">Scope</th><th scope="col">Key Scenarios</th><th scope="col">Environment</th></tr></thead>
+      <tbody>
+        <tr class="row-alt"><td>Unit</td><td>Regex pattern matching</td><td>Each of 24 patterns tested against known-match and known-safe commands; verify no false positives on safe set (50+ benign commands)</td><td>Node.js sandbox OK</td></tr>
+        <tr><td>Unit</td><td>DangerDialog rendering</td><td>Dialog renders correctly at widths: 40, 60, 80, 120 cols; scroll offset clamps correctly; visibleHeight adapts to width</td><td>Node.js sandbox OK</td></tr>
+        <tr class="row-alt"><td>Integration</td><td><code class="inline-code">tool_call</code> event flow</td><td>Dangerous command triggers dialog return <code class="inline-code">true</code> → command executes; return <code class="inline-code">false</code> → <code class="inline-code">{ block: true }</code> returned</td><td>Pi interactive mode (real extension runtime)</td></tr>
+        <tr><td>Integration</td><td>Non-interactive guard</td><td>Extension in <code class="inline-code">-p</code> mode does not hang; warning logged to stderr; command allowed through</td><td>Pi print mode (<code class="inline-code">pi -p</code>)</td></tr>
+        <tr class="row-alt"><td>E2E</td><td>Full gate cycle</td><td>Load extension, trigger <code class="inline-code">rm testfile.txt</code> via agent, observe overlay dialog in terminal, press Y → file deleted; repeat with N → file intact, tool result shows block reason</td><td><strong>Pi interactive terminal with real <code class="inline-code">danger-gate.ts</code> loaded via <code class="inline-code">-e</code> flag</strong></td></tr>
+        <tr><td>E2E</td><td>Pattern false-positive sweep</td><td>Run 50+ known-safe commands (<code class="inline-code">ls</code>, <code class="inline-code">cat</code>, <code class="inline-code">git status</code>, <code class="inline-code">rm -h</code>, <code class="inline-code">man rm</code>) through extension — confirm zero dialogs triggered</td><td><strong>Pi interactive terminal with real extension</strong></td></tr>
+        <tr class="row-alt"><td>Regression</td><td>Long command scrolling</td><td>Command > 16 lines: scroll to bottom, verify last line visible; PgUp/PgDown work; Home/End jump correctly</td><td><strong>Pi interactive terminal</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Security Considerations -->
+<section id="security-considerations">
+  <h2>🛡️ Security Considerations</h2>
+  <blockquote class="callout callout-note">
+    <p>This section documents findings from the red team audit (<code class="inline-code">docs/security/redteam-findings-dangergate-popup.md</code>). Every finding has a disposition: RESOLVED, DEFERRED, or ACKNOWLEDGED.</p>
+  </blockquote>
+
+  <div style="display:grid; gap:1rem;">
+    <!-- RESOLVED findings -->
+    <article style="background:rgba(63,185,80,0.04);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Missing <code class="inline-code">ctx.hasUI</code> guard — <span class="badge-resolved">RESOLVED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> Extension calls <code class="inline-code">ctx.ui.custom()</code> in non-interactive mode → deadlock or bypass</li>
+        <li><strong>Mitigation:</strong> Mandatory <code class="inline-code">ctx.hasUI</code> check before any pattern matching or UI rendering. When false: emit <code class="inline-code">console.warn()</code>, allow-through.</li>
+        <li><strong>Verification:</strong> Integration test against <code class="inline-code">pi -p</code> (print mode) with dangerous command → no hang, warning logged</li>
+      </ul>
+    </article>
+
+    <article style="background:rgba(63,185,80,0.04);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4><code class="inline-code">ctx.ui.custom()</code> exception handling — <span class="badge-resolved">RESOLVED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> UI crash propagates unhandled rejection → potential gate bypass or agent disruption</li>
+        <li><strong>Mitigation:</strong> <code class="inline-code">ctx.ui.custom()</code> MUST be wrapped in try/catch. On exception: log warning, allow-through per non-interactive policy.</li>
+        <li><strong>Verification:</strong> Integration test with simulated TUI error → command blocked (fail-safe) or allowed with logged warning</li>
+      </ul>
+    </article>
+
+    <article style="background:rgba(63,185,80,0.04);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Return shape <code class="inline-code">{ block: true }</code> — <span class="badge-resolved">RESOLVED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> Wrong return key could cause denials to silently become approvals</li>
+        <li><strong>Mitigation:</strong> Verified against Pi Extension API docs (extensions.md §Tool Events, line 688): <code class="inline-code">{ block: true, reason?: string }</code> is correct for <code class="inline-code">tool_call</code> events.</li>
+        <li><strong>Verification:</strong> API documentation cross-reference; unit test confirming Pi recognizes return</li>
+      </ul>
+    </article>
+
+    <article style="background:rgba(63,185,80,0.04);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Dialog timeout — <span class="badge-resolved">RESOLVED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> User walks away from terminal → agent turn permanently blocked</li>
+        <li><strong>Mitigation:</strong> Configurable timeout (default: 60s, via <code class="inline-code">DangergateConfig.timeoutMs</code>). Auto-deny on expiry. Countdown at &lt;15s remaining.</li>
+      </ul>
+    </article>
+
+    <article style="background:rgba(63,185,80,0.04);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Regex word boundary fixes (P3 <code class="inline-code">shred</code>, P5 <code class="inline-code">dd</code>) — <span class="badge-resolved">RESOLVED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> False positives on commands containing substrings (e.g., <code class="inline-code">unshred</code>, <code class="inline-code">badd if=</code>)</li>
+        <li><strong>Mitigation:</strong> Added leading <code class="inline-code">\b</code> to both patterns: <code class="inline-code">/\bshred\b/</code> and <code class="inline-code">/\bdd\s+if=/</code>.</li>
+      </ul>
+    </article>
+
+    <article style="background:rgba(63,185,80,0.04);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Piped code execution patterns — <span class="badge-resolved">RESOLVED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> Commands piping arbitrary code into shell interpreters bypass original 20 patterns (<code class="inline-code">curl | bash</code>, <code class="inline-code">echo | sh</code>, <code class="inline-code">python3 -c</code>)</li>
+        <li><strong>Mitigation:</strong> Added P21–P24 to pattern registry. Moved from "future" to Phase 1 requirement.</li>
+      </ul>
+    </article>
+
+    <article style="background:rgba(63,185,80,0.04);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Config file tampering protection — <span class="badge-resolved">RESOLVED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> Config modified to exclude all patterns → complete gate neutralization with no trace</li>
+        <li><strong>Mitigation:</strong> Validation rules on load: cap at 50 patterns, validate each regex, warn if ≥50% excluded, min 3 active always, log on load.</li>
+      </ul>
+    </article>
+
+    <article style="background:rgba(63,185,80,0.04);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Long command render allocation — <span class="badge-resolved">RESOLVED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> Multi-MB single-line commands cause unbounded memory allocation during <code class="inline-code">padEnd()</code></li>
+        <li><strong>Mitigation:</strong> Truncate BEFORE <code class="inline-code">padEnd()</code>. Hard cap: 4096 (4KB) total preview characters.</li>
+      </ul>
+    </article>
+
+    <!-- DEFERRED findings -->
+    <article style="background:rgba(210,153,34,0.04);border:1px solid rgba(210,153,34,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Variable substitution bypass — <span class="badge-deferred">DEFERRED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> Commands using variable substitution (<code class="inline-code">A=rm; $A -rf /</code>) bypass literal pattern matching entirely</li>
+        <li><strong>Rationale:</strong> Full shell-command parsing is out of scope for Phase 1-3. Regex-based matching has inherent limitations with obfuscation.</li>
+        <li><strong>Revisit trigger:</strong> If Phase 4 adds shell-parsing capability (e.g., <code class="inline-code">node-shell-parser</code>), revisit at that time.</li>
+        <li><strong>Residual impact:</strong> Sophisticated adversarial prompts can bypass the gate via variable substitution, backtick expansion, or <code class="inline-code">$()</code> command substitution. Users must understand this is NOT comprehensive protection.</li>
+      </ul>
+    </article>
+
+    <article style="background:rgba(210,153,34,0.04);border:1px solid rgba(210,153,34,0.2);border-radius:8px;padding:1rem 1.25rem;">
+      <h4>Heredoc false positives — <span class="badge-deferred">DEFERRED</span></h4>
+      <ul style="margin-top:0.5em">
+        <li><strong>Risk:</strong> Heredocs containing dangerous strings as data trigger gates unnecessarily</li>
+        <li><strong>Rationale:</strong> Heredoc-aware parsing requires understanding shell quoting context, which is complex with regex.</li>
+        <li><strong>Revisit trigger:</strong> If user feedback indicates high false-positive rate from heredocs in Phase 1-2 testing, consider Phase 3 enhancement.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- Rollout & Rollback -->
+<section id="rollout--rollback">
+  <h2>🚢 Rollout &amp; Rollback</h2>
+
+  <h3>Rollout Sequence</h3>
+  <div class="diagram-block">
+    <div class="diagram-header">📊 Rollout Flow — Developer to Production</div>
+    <pre class="mermaid">sequenceDiagram
+    participant D as Developer
+    participant E as Extension File
+    participant P as Pi Runtime
+    participant U as User Terminal
+
+    D->>E: Write/update danger-gate.ts
+    D->>P: pi -e ./danger-gate.ts (test run)
+    P->>U: Show overlay for test command (e.g., rm /tmp/testfile)
+    U-->>P: Confirm Y → verify execution
+    U-->>P: Deny N → verify block + reason logged
+
+    Note over D,P: Iterate patterns/dialog as needed
+
+    D->>E: Commit final danger-gate.ts
+    D->>P: Place in ~/.pi/agent/extensions/danger-gate.ts (auto-discovery)
+    P-->>U: Gate active for all subsequent sessions</pre>
+  </div>
+  <p class="diagram-caption">Rollout sequence from development through auto-discovery installation.</p>
+
+  <h3>Rollback Plan</h3>
+  <blockquote class="callout callout-warning">
+    <p><strong>🟡 Rollback is trivial:</strong> Remove or rename <code class="inline-code">danger-gate.ts</code> from the extensions directory and run <code class="inline-code">/reload</code>. No state, database, or persistent config is modified. The extension is purely ephemeral — no installed dependencies, no session modifications (Phase 4 logging is additive only).</p>
+  </blockquote>
+</section>
+
+<!-- Open Questions -->
+<section id="open-questions">
+  <h2>❓ Open Questions</h2>
+  <ul>
+    <li>Should there be a per-pattern severity system (e.g., "critical" patterns auto-deny in non-interactive mode even with <code class="inline-code">allow-log</code> policy)?</li>
+    <li>Horizontal scrolling for commands exceeding terminal width — or is truncation acceptable?</li>
+    <li><del>Should the dialog show <em>which pattern</em> matched?</del> → <strong>RESOLVED:</strong> Yes, planned for Phase 3 (matched-pattern display).</li>
+    <li>Config format: JSON file (<code class="inline-code">~/.pi/agent/dangergate.json</code>), <code class="inline-code">settings.json</code> key, or inline comments in extension source?</li>
+    <li><del>Timeout behavior: auto-deny after N seconds of inactivity? What default?</del> → <strong>RESOLVED:</strong> Default 60s auto-deny, configurable via <code class="inline-code">DangergateConfig.timeoutMs</code>. Countdown shown at &lt;15s.</li>
+    <li>Should the extension expose a custom tool (<code class="inline-code">dangergate_status</code>) for the LLM to query current gate configuration?</li>
+  </ul>
+</section>
+
+<p style="color:var(--text-muted);font-size:0.85rem;text-align:right;margin-top:2rem;">Generated by generate-spec · Hardened 2026-05-16 · v1.1.0</p>
+
+</div><!-- /content-area -->
+
+</main>
+<footer class="doc-footer">
+  <p>Generated from markdown specification on 2026-05-16 · Dangergate Popup v1.1.0 (Hardened)</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+</html>

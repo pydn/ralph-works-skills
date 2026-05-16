@@ -10,23 +10,52 @@ export {
 
 /**
  * Scrollable confirm dialog for dangerous command confirmation.
+ * Implements configurable timeout with auto-deny on expiry (HARDENED — spec R1 mitigation).
  */
 export class DangerDialog {
   private done: (result: boolean) => void;
   private commandLines: string[];
   public scrollOffset = 0;
   public visibleHeight = MAX_PREVIEW_HEIGHT;
+  private readonly timeoutMs: number;
+  private readonly startTime: number;
+  private timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  private resolved = false;
 
-  constructor(command: string, done: (result: boolean) => void) {
+  constructor(command: string, done: (result: boolean) => void, timeoutMs: number = DEFAULT_TIMEOUT_MS) {
     this.done = done;
+    this.timeoutMs = timeoutMs;
+    this.startTime = Date.now();
     // Cap total characters to prevent unbounded allocation (HARDENED)
     const truncated = command.length > MAX_PREVIEW_CHARS
       ? command.slice(0, MAX_PREVIEW_CHARS) + "\n[... command truncated, " + command.length + " chars total]"
       : command;
     this.commandLines = truncated.split("\n");
+    // Start auto-deny timer (HARDENED — R1 mitigation)
+    this.startTimeout();
+  }
+
+  private startTimeout(): void {
+    if (this.timeoutMs <= 0) return; // 0 or negative = no timeout
+    this.timeoutHandle = setTimeout(() => {
+      if (!this.resolved) {
+        this.resolved = true;
+        console.warn(`Dangergate: auto-denied after ${this.timeoutMs}ms timeout`);
+        this.done(false); // auto-deny on timeout
+      }
+    }, this.timeoutMs);
+  }
+
+  private clearTimeout(): void {
+    if (this.timeoutHandle) {
+      clearTimeout(this.timeoutHandle);
+      this.timeoutHandle = null;
+    }
   }
 
   handleInput(data: string): void {
+    // Prevent double-resolution (HARDENED — timeout + manual input race)
+    if (this.resolved) return;
     const total = this.commandLines.length;
     if (matchesKey(data, Key.up) || data === "k") {
       if (this.scrollOffset > 0) {
@@ -52,12 +81,16 @@ export class DangerDialog {
       data === "y" ||
       data === "Y"
     ) {
+      this.resolved = true;
+      this.clearTimeout();
       this.done(true);
     } else if (
       matchesKey(data, Key.escape) ||
       data === "n" ||
       data === "N"
     ) {
+      this.resolved = true;
+      this.clearTimeout();
       this.done(false);
     }
   }
@@ -134,8 +167,15 @@ export class DangerDialog {
       lines.push(" ".repeat(width));
     }
 
-    // Hint line
-    const hint = "[Y]es / [N]o   ↑↓ scroll";
+    // Hint line — show countdown when < 15s remaining (HARDENED — R1 mitigation)
+    let hint = "[Y]es / [N]o   ↑↓ scroll";
+    if (this.timeoutMs > 0) {
+      const elapsed = Date.now() - this.startTime;
+      const remaining = Math.max(0, Math.ceil((this.timeoutMs - elapsed) / 1000));
+      if (remaining < 15) {
+        hint = `[Y]es / [N]o   ↑↓ scroll   ⏱ ${remaining}s`;
+      }
+    }
     lines.push(
       "  \x1b[2m" +
         hint.slice(0, safeWidth).padEnd(safeWidth).slice(0, safeWidth) +
