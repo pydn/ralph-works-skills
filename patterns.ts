@@ -4,6 +4,8 @@
  * First match triggers the confirmation dialog.
  */
 
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
 // Max height for the command preview area (in terminal lines).
 export const MAX_PREVIEW_HEIGHT = 16;
 /** Hard cap on total preview characters to prevent unbounded allocation. */
@@ -73,4 +75,9 @@ export function checkDangerous(command: string, patterns: RegExp[] = DANGEROUS_P
     }
   }
   return -1;
+}
+
+export default function (_pi: ExtensionAPI) {
+  // Helper module only. It is symlinked into the extensions directory so
+  // danger-gate can import it, and the extension loader requires a factory.
 }

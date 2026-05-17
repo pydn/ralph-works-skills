@@ -1,5 +1,14 @@
 import { matchesKey, Key } from "@earendil-works/pi-tui";
-// Re-export everything from patterns.ts so the main extension can import from here
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+  DANGEROUS_PATTERNS,
+  checkDangerous,
+  MAX_PREVIEW_HEIGHT,
+  MAX_PREVIEW_CHARS,
+  DEFAULT_TIMEOUT_MS,
+} from "./patterns.js";
+
+// Re-export everything from patterns.ts so the main extension can import from here.
 export {
   DANGEROUS_PATTERNS,
   checkDangerous,
@@ -191,4 +200,9 @@ export class DangerDialog {
   invalidate(): void {
     // No cached state to clear
   }
+}
+
+export default function (_pi: ExtensionAPI) {
+  // Helper module only. It is symlinked into the extensions directory so
+  // danger-gate can import it, and the extension loader requires a factory.
 }
