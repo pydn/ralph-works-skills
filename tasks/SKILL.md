@@ -1,6 +1,6 @@
 ---
 name: tasks
-description: Creates a strict Markdown implementation task ledger from a hardened Ralph specification. Use after harden and before tdd-implement.
+description: Creates a human-readable Markdown implementation task ledger from a hardened Ralph specification. Use after harden and before tdd-implement.
 input:
   spec_file: Path to the hardened specification file, usually docs/specs/FEATURE.md.
   changelog_file: Path to the harden changelog, usually docs/specs/harden-changelog-FEATURE.md.
@@ -11,7 +11,7 @@ input:
 
 ## Goal
 
-Create a comprehensive implementation task ledger from the hardened spec. Do not implement code. Your output is the durable backlog that Ralph parses, updates, and uses to launch one scoped `tdd-implement` task at a time.
+Create a comprehensive implementation task ledger from the hardened spec. Do not implement code. Your output is the durable backlog that Ralph gives to LLM selector and TDD prompts. Ralph does not deterministically parse or update this generated document.
 
 ## Inputs
 
@@ -27,7 +27,7 @@ Write:
 
 ## Required Ledger Format
 
-Markdown is the source of truth. Use this exact structure so Ralph can parse and update it:
+Markdown is the source of truth. Use a clear, consistent structure so an LLM can reliably read one task by ID:
 
 ```markdown
 # Implementation Tasks - FEATURE

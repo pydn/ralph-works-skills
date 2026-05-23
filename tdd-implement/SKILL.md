@@ -3,8 +3,8 @@ name: tdd-implement
 description: Implements one selected Ralph implementation task from a hardened specification using a strict Red-Green-Refactor loop. Use this to convert a persisted task into working, tested code without broadening scope.
 input:
   spec_file: (Optional) Path to the hardened specification file (e.g., docs/specs/feature.md). If omitted, use conversation context only for the selected task.
-  selected_task: (Optional) The single implementation task Ralph selected and persisted in state for this invocation.
-  task_file: (Optional) Path to the Ralph implementation task ledger, if the controller provides one.
+  selected_task_id: (Optional) The single implementation task ID Ralph selected and persisted in state for this invocation.
+  task_file: (Optional) Path to the Ralph implementation task ledger containing the selected task.
 ---
 
 # TDD Implementation Skill — Scoped Red-Green-Refactor
@@ -20,19 +20,20 @@ This skill runs inside the future Ralph iterative implementation loop:
 
 1. A hardened spec exists.
 2. Ralph compacts context.
-3. Ralph selects the highest-priority remaining implementation task.
-4. Ralph persists that selected task in controller state.
-5. Ralph launches this skill for that task only.
-6. This skill completes the task with Red-Green-Refactor evidence.
-7. Ralph records the task complete, compacts again, and selects the next task.
+3. Ralph asks a selector LLM to choose one next implementation task ID from the task ledger.
+4. Ralph persists that selected task ID and task ledger path in controller state.
+5. Ralph launches this skill for that task ID only.
+6. This skill reads the task ledger, finds the selected task by ID, and completes it with Red-Green-Refactor evidence.
+7. Ralph accepts the task signal after gates pass, compacts again, and selects the next task.
 8. When no tasks remain, Ralph advances to review.
 
-The selector and controller own task ordering, persistence, compaction, and phase transitions. This skill owns only the current task's implementation cycle.
+The selector owns task choice. The controller owns task ID persistence, compaction, gate enforcement, and phase transitions. This skill owns reading the selected task from the ledger and completing only that task's implementation cycle.
 
 ### Scope Rules
 
-- Treat `selected_task` as the binding scope for this invocation.
-- If `selected_task` is present, do not derive or execute a full-spec implementation plan.
+- Treat `selected_task_id` plus `task_file` as the binding scope for this invocation.
+- Read `task_file`, locate `selected_task_id`, and use that task entry as the source of truth.
+- If `selected_task_id` is present, do not derive or execute a full-spec implementation plan.
 - If the hardened spec contains adjacent requirements, read them only for context and compatibility.
 - If the selected task is ambiguous, ask for clarification or record a blocker instead of implementing a guessed broader feature.
 - If you discover prerequisite work, record it as a new pending implementation task rather than silently folding it into the current task.
@@ -57,23 +58,23 @@ CRITICAL Ralph review findings may create new implementation tasks or reopen com
 
 Before branch or code work, identify the selected task:
 
-1. Read `selected_task` from the prompt, Ralph state summary, or `task_file`.
-2. Capture its stable fields if provided:
-   - Task ID
+1. Read `selected_task_id` and `task_file` from the prompt or Ralph state summary.
+2. Open `task_file` and locate the matching task entry by ID.
+3. Capture its stable fields from the ledger:
    - Title
    - Priority
    - Source (`hardened_spec`, `review_critical`, `reopened_task`, or `manual`)
    - Acceptance criteria
    - Required tests or verification
    - Files or components likely affected
-3. Restate the scope in one or two sentences.
-4. Explicitly list anything you will not do because it is outside the selected task.
+4. Restate the scope in one or two sentences.
+5. Explicitly list anything you will not do because it is outside the selected task.
 
 If no selected task is provided:
 
 - Do not start broad implementation.
 - Read the hardened spec only far enough to propose the next highest-priority task.
-- Ask Ralph/the user to persist one selected task before implementation starts.
+- Ask Ralph/the user to persist one selected task ID and task ledger path before implementation starts.
 
 ### 2. Create Feature Branch
 Before writing any code, ensure you are working on a dedicated feature branch.
@@ -97,7 +98,7 @@ Before writing any code, ensure you are working on a dedicated feature branch.
 > **Rule**: Never implement on `main`, `master`, or `develop` directly. All TDD work must happen on a `feature/` branch.
 
 ### 3. Read Context
-*   **Read the selected task first**: Use `selected_task` or `task_file` as the implementation scope.
+*   **Read the selected task first**: Use `selected_task_id` and `task_file` as the implementation scope.
 *   **Read the hardened spec second**: Load `spec_file` for definitions, constraints, and acceptance criteria related to the selected task only.
 *   **Read review context when applicable**: If the task source is `review_critical` or `reopened_task`, read the referenced review report/finding before planning tests.
 *   **Identify the testing framework**: Scan existing test files to determine the runner, assertion library, and conventions.
@@ -308,7 +309,7 @@ Output a final task summary with task ID/title, test count, files modified, rela
 
 Use this status vocabulary:
 
-- `TASK_COMPLETE` — selected task is implemented, tested, and ready for Ralph to mark complete.
+- `TASK_COMPLETE` — selected task is implemented, tested, updated in the ledger by this skill, and ready for Ralph to accept after gates pass.
 - `TASK_PARTIALLY_VERIFIED` — implementation is done, but required E2E or external validation could not run.
 - `TASK_BLOCKED` — task cannot be completed without missing information, unavailable dependencies, or prerequisite work.
 - `TASK_NEEDS_FOLLOWUP` — current task is complete, and separate pending tasks were discovered and recorded.
