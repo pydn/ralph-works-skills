@@ -1,0 +1,7 @@
+{
+  "name": "danger-gate",
+  "kind": "pi-extension",
+  "entry": "index.ts",
+  "events": ["tool_call"],
+  "tools": ["bash"]
+}

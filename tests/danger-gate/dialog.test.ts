@@ -1,6 +1,6 @@
 /**
  * Tests for DangerDialog rendering behavior (pure logic, no Pi TUI deps).
- * We test via a standalone implementation that mirrors danger-patterns.ts
+ * We test via a standalone implementation that mirrors danger-gate/dialog.ts
  * but with inline mock for matchesKey/Key to avoid importing pi-tui.
  */
 import { describe, it } from "node:test";
@@ -12,7 +12,7 @@ const MAX_PREVIEW_CHARS = 4096;
 
 /**
  * Minimal DangerDialog implementation for testing render logic.
- * Mirrors danger-patterns.ts but uses simple key matching without pi-tui dependency.
+ * Mirrors extensions/danger-gate/dialog.ts but uses simple key matching without pi-tui dependency.
  */
 class TestableDangerDialog {
   private done: (result: boolean) => void;

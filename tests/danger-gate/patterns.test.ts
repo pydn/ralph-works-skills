@@ -1,11 +1,16 @@
 /**
- * Unit tests for danger-patterns.ts (pure logic, no Pi deps).
- * Run: npm test (or node --import jiti/register tests/danger-gate.test.ts)
+ * Unit tests for danger-gate patterns (pure logic, no Pi deps).
+ * Run: npm test
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { DANGEROUS_PATTERNS, checkDangerous, MAX_PREVIEW_CHARS, MAX_PREVIEW_HEIGHT } from "../patterns.js";
+import {
+  DANGEROUS_PATTERNS,
+  checkDangerous,
+  MAX_PREVIEW_CHARS,
+  MAX_PREVIEW_HEIGHT,
+} from "../../extensions/danger-gate/patterns.js";
 
 describe("Dangergate — Pattern Matching (P1-P24)", () => {
   function matches(cmd: string): boolean {

@@ -38,7 +38,7 @@ The dangergate-popup extension solves this by:
 
 | Path | Constraint | Impact |
 |------|-----------|--------|
-| `~/.pi/agent/extensions/` | Auto-discovery location for global extensions; writable by default | Extension file (`danger-gate.ts`) placed here loads automatically |
+| `~/.pi/agent/extensions/` | Auto-discovery location for global extensions; writable by default | Extension entrypoint (`extensions/danger-gate/index.ts`, symlinked as `danger-gate.ts`) loads automatically |
 | `.pi/extensions/` | Auto-discovery location for project-local extensions; writable by default | Alternative placement for per-project gating rules |
 
 ### Hardware & Runtime
@@ -265,7 +265,7 @@ type NonInteractivePolicy = "allow-log" | "deny" | "allow-silent";
 
 | Phase | Milestone | Complexity | Dependencies | Timeline |
 |-------|-----------|------------|--------------|----------|
-| **Phase 1 — Core Gate** | `danger-gate.ts` with hardcoded patterns (P1-P24 including pipe/eval/python), scrollable dialog, `ctx.hasUI` guard, try/catch around `ctx.ui.custom()`, **configurable timeout** (default 60s auto-deny with countdown display) | 🟢 Low→🟡 Medium (hardened) | Pi extension API, pi-tui | Baseline |
+| **Phase 1 — Core Gate** | `extensions/danger-gate/index.ts` with hardcoded patterns (P1-P24 including pipe/eval/python), scrollable dialog, `ctx.hasUI` guard, try/catch around `ctx.ui.custom()`, **configurable timeout** (default 60s auto-deny with countdown display) | 🟢 Low→🟡 Medium (hardened) | Pi extension API, pi-tui | Baseline |
 | **Phase 2 — Configuration** | User-configurable patterns via `~/.pi/agent/dangergate.json` or `settings.json`; non-interactive policy selection; config validation: reject invalid regexes, cap additionalPatterns at 50, warn if >50% excluded, log pattern count on load | 🟡 Medium (hardened) | Phase 1, `node:fs` for config read | Iteration 1 |
 | **Phase 3 — Pattern Enhancements** | Severity levels per pattern (warning vs critical); matched-pattern display in dialog; exclude-list from settings | 🟡 Medium | Phase 2 | Iteration 2 |
 | **Phase 4 — Logging & Audit** | Append blocked/allowed decisions to session via `pi.appendEntry()`; command history viewer | 🟢 Low | Phase 1-3 | Iteration 3 |
@@ -324,7 +324,7 @@ type NonInteractivePolicy = "allow-log" | "deny" | "allow-silent";
 | Unit | DangerDialog rendering | Dialog renders correctly at widths: 40, 60, 80, 120 cols; scroll offset clamps correctly; visibleHeight adapts to width | Node.js sandbox OK |
 | Integration | `tool_call` event flow | Dangerous command triggers dialog return `true` → command executes; return `false` → `{ block: true }` returned | Pi interactive mode (real extension runtime) |
 | Integration | Non-interactive guard | Extension in `-p` mode does not hang; warning logged to stderr; command allowed through | Pi print mode (`pi -p`) |
-| E2E | Full gate cycle | Load extension, trigger `rm testfile.txt` via agent, observe overlay dialog in terminal, press Y → file deleted; repeat with N → file intact, tool result shows block reason | **Pi interactive terminal with real `danger-gate.ts` loaded via `-e` flag** — verify visible overlay and actual command execution/blocking |
+| E2E | Full gate cycle | Load extension, trigger `rm testfile.txt` via agent, observe overlay dialog in terminal, press Y → file deleted; repeat with N → file intact, tool result shows block reason | **Pi interactive terminal with real `extensions/danger-gate/index.ts` loaded via `-e` flag** — verify visible overlay and actual command execution/blocking |
 | E2E | Pattern false-positive sweep | Run 50+ known-safe commands (`ls`, `cat`, `git status`, `rm -h`, `man rm`) through extension — confirm zero dialogs triggered | **Pi interactive terminal with real extension** — no overlays should appear for safe commands |
 | Regression | Long command scrolling | Command > 16 lines: scroll to bottom, verify last line visible; PgUp/PgDown work; Home/End jump correctly | **Pi interactive terminal** — verify scroll state via render output inspection |
 
@@ -415,15 +415,15 @@ sequenceDiagram
     participant P as Pi Runtime
     participant U as User Terminal
 
-    D->>E: Write/update danger-gate.ts
-    D->>P: pi -e ./danger-gate.ts (test run)
+    D->>E: Write/update extensions/danger-gate/index.ts
+    D->>P: pi -e ./extensions/danger-gate/index.ts (test run)
     P->>U: Show overlay for test command (e.g., rm /tmp/testfile)
     U-->>P: Confirm Y → verify execution
     U-->>P: Deny N → verify block + reason logged
 
     Note over D,P: Iterate patterns/dialog as needed
 
-    D->>E: Commit final danger-gate.ts
+    D->>E: Commit final extensions/danger-gate package
     D->>P: Place in ~/.pi/agent/extensions/danger-gate.ts (auto-discovery)
     P-->>U: Gate active for all subsequent sessions
 ````
@@ -432,7 +432,7 @@ sequenceDiagram
 
 ### Rollback Plan
 
-> 🟡 **Rollback is trivial:** Remove or rename `danger-gate.ts` from the extensions directory and run `/reload`. No state, database, or persistent config is modified. The extension is purely ephemeral — no installed dependencies, no session modifications (Phase 4 logging is additive only).
+> 🟡 **Rollback is trivial:** Remove or rename the `danger-gate.ts` symlink/file from the extensions directory and run `/reload`. No state, database, or persistent config is modified. The extension is purely ephemeral — no installed dependencies, no session modifications (Phase 4 logging is additive only).
 
 ---
 

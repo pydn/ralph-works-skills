@@ -1,13 +1,13 @@
 /**
- * Integration tests for danger-gate.ts handler logic.
+ * Integration tests for danger-gate extension handler logic.
  * Tests ctx.hasUI guard, try/catch around ui.custom(), and extension flow.
- * Run: npm test (or node --import jiti/register tests/danger-gate-integration.test.ts)
+ * Run: npm test
  */
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
 // Import pure logic for testing the handler decisions
-import { checkDangerous, DANGEROUS_PATTERNS } from "../patterns.js";
+import { checkDangerous, DANGEROUS_PATTERNS } from "../../extensions/danger-gate/patterns.js";
 
 /** Mock ExtensionAPI for testing. */
 interface MockCtx {
