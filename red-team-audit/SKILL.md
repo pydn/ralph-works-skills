@@ -1,6 +1,6 @@
 ---
 name: red-team-audit
-description: Conducts an adversarial security review of a feature or spec. Use this to find vulnerabilities, logic flaws, and abuse vectors. Outputs structured markdown findings tagged with severity.
+description: Conducts an evidence-driven adversarial security review of a feature or spec, including repository reality checks where possible. Use this to find vulnerabilities, logic flaws, abuse vectors, edge cases, and scalability risks. Outputs structured markdown findings tagged with severity.
 input:
   target_file: (Required) The markdown specification file to audit (e.g., docs/specs/FEATURE.md)
 ---
@@ -9,13 +9,15 @@ input:
 
 ## Goal
 
-Act as a **sophisticated adversary** (Red Team). Your job is to find security vulnerabilities, logic gaps, edge cases, and scalability issues in the `target_file` markdown specification. Be paranoid. Assume nothing is safe until proven otherwise. Produce structured **markdown findings** written to `docs/security/redteam-findings-FEATURE.md`.
+Act as a **sophisticated adversary** (Red Team). Your job is to find security vulnerabilities, logic gaps, edge cases, and scalability issues in the `target_file` markdown specification, validated against the repository where possible. Be paranoid, but evidence-driven. Assume nothing is safe until proven otherwise. Produce structured **markdown findings** written to `docs/security/redteam-findings-FEATURE.md`.
 
 **Mindset**: You are not here to be helpful — you are here to break things. Every input is hostile. Every assumption is an attack surface. Every "can't happen" is a challenge.
 
 ## Pipeline Compatibility Note
 
 This skill feeds into the Ralph review loop (ralph-loop.sh). Your structured `[CRITICAL]`/`[WARNING]`/`[INFO]` output and `RALPH_EXIT` signal are parsed by the automated pipeline to drive remediation decisions and exit conditions. Do NOT omit these — they MUST be present in your terminal response alongside the written findings file.
+
+If there are zero `[CRITICAL]` findings, append `RALPH_EXIT` on the absolute last line of the terminal response. This applies to both initial audits and verification re-runs, even when `[WARNING]` or `[INFO]` findings remain.
 
 ---
 
@@ -123,7 +125,7 @@ Design decisions that break under load or growth.
 
 ## Findings Output Format
 
-Write findings to `docs/security/redteam-findings-FEATURE.md` using this structure:
+Derive `FEATURE` from the `target_file` basename without extension. Create `docs/security` if it does not exist. Write findings to `docs/security/redteam-findings-FEATURE.md` using this structure:
 
 ```markdown
 # Red Team Audit — [FEATURE NAME]
@@ -144,12 +146,26 @@ Write findings to `docs/security/redteam-findings-FEATURE.md` using this structu
 
 ---
 
+## Scope, Evidence, and Assumptions
+
+| Item | Notes |
+|------|-------|
+| Files reviewed | `[target_file]`, `[related files inspected]` |
+| Codebase reality check | [What implementation files/tests/docs were inspected, or why none were available] |
+| Assumptions | [Assumptions made where the spec or repo was silent] |
+| Non-findings | [Risks considered but not raised, with brief rationale] |
+
+---
+
 ## Findings
 
 ### 🔴 [CRITICAL] — [Brief Title]
 
 - **Category:** Logic Gap / Security Vulnerability / Edge Case / Scalability Issue
 - **Section:** Reference the spec section (e.g., "3.2 Authentication Flow")
+- **Evidence:** Quote or summarize the exact spec text, related code, or missing requirement that supports the finding
+- **Exploit Preconditions:** Conditions required for the issue to manifest
+- **Confidence:** High / Medium / Low
 - **Description:** Clear explanation of the vulnerability or gap
 - **Attack Vector / Scenario:** Concrete step-by-step scenario of how this manifests
   1. [Step 1]
@@ -162,6 +178,9 @@ Write findings to `docs/security/redteam-findings-FEATURE.md` using this structu
 
 - **Category:** Logic Gap / Security Vulnerability / Edge Case / Scalability Issue
 - **Section:** Reference the spec section
+- **Evidence:** Quote or summarize the exact spec text, related code, or missing requirement that supports the finding
+- **Exploit Preconditions:** Conditions required for the issue to manifest
+- **Confidence:** High / Medium / Low
 - **Description:** Clear explanation
 - **Attack Vector / Scenario:** Concrete scenario (if applicable)
   1. [Step 1]
@@ -173,6 +192,8 @@ Write findings to `docs/security/redteam-findings-FEATURE.md` using this structu
 
 - **Category:** Logic Gap / Security Vulnerability / Edge Case / Scalability Issue
 - **Section:** Reference the spec section
+- **Evidence:** Quote or summarize the exact spec text, related code, or missing requirement that supports the observation
+- **Confidence:** High / Medium / Low
 - **Description:** Observation or recommendation
 - **Recommended Action:** Suggested improvement (lower priority)
 
@@ -206,9 +227,16 @@ Write findings to `docs/security/redteam-findings-FEATURE.md` using this structu
 
 | Tag | When to Use | Pipeline Effect |
 |-----|-------------|-----------------|
-| `[CRITICAL]` | Vulnerabilities that must be fixed before implementation. Exploitable security flaws, data loss risks, or blocking logic gaps. | Blocks progression until resolved |
-| `[WARNING]` | Issues that should be addressed but don't block. Edge cases without clear mitigation, potential scalability concerns, or incomplete error handling. | Flagged for review; may proceed with acknowledgment |
-| `[INFO]` | Observations and recommendations. Minor improvements, best-practice suggestions, or areas worth revisiting later. | Informational only |
+| `[CRITICAL]` | Must-fix before implementation or release: exploitable security flaws, likely data loss/corruption, privilege/authz bypass, guaranteed implementation failure, or a spec contradiction that blocks correct implementation. | Blocks progression until resolved |
+| `[WARNING]` | Should-fix risk: plausible but bounded exploit path, incomplete failure handling, missing operational guardrail, scalability concern, or ambiguity that could lead to a bad implementation but has a reasonable workaround. | Flagged for review; may proceed with acknowledgment |
+| `[INFO]` | Hardening, clarity, maintainability, or best-practice observation without a concrete exploit path or blocking implementation impact. | Informational only |
+
+**Calibration rules:**
+- Do not label a finding `[CRITICAL]` just because a topic is security-related; show a concrete exploit path, data integrity impact, or implementation blocker.
+- Prefer `[WARNING]` for missing detail that matters but can be safely resolved during implementation.
+- Prefer `[INFO]` for recommendations that improve clarity or resilience but do not materially change risk.
+- If confidence is Low, avoid `[CRITICAL]` unless the impact is catastrophic and the missing evidence is explicitly called out.
+- Deduplicate variants under one root-cause finding. Do not create separate findings for every checklist item when one remediation fixes them together.
 
 ---
 
@@ -216,12 +244,15 @@ Write findings to `docs/security/redteam-findings-FEATURE.md` using this structu
 
 When invoked, follow this sequence:
 
-1. **Read** the `target_file` completely (and related files if imports/references are found).
-2. **Phase 1 — Reconnaissance:** Map entry points, valuable assets, and trust boundaries described in the spec.
-3. **Phase 2 — Threat Modeling:** Systematically evaluate against all four focus areas (Logic Gaps, Security Vulnerabilities via STRIDE, Edge Cases, Scalability Issues).
-4. **Phase 3 — Exploitation Scenarios:** For every potential vulnerability, write a concrete step-by-step attack or failure scenario.
-5. **Write** the findings file to `docs/security/redteam-findings-FEATURE.md` using the markdown template above.
-6. **Produce structured output** for pipeline integration (see below).
+1. **Read** the `target_file` completely.
+2. **Derive output path:** Use the target basename as `FEATURE` and prepare `docs/security/redteam-findings-FEATURE.md`.
+3. **Codebase reality check:** Inspect likely implementation files, existing tests, prior specs, and referenced integrations. If the repository does not contain relevant implementation context, state that explicitly in the findings file.
+4. **Phase 1 — Reconnaissance:** Map entry points, valuable assets, trust boundaries, actors, data flows, and external dependencies described in the spec.
+5. **Phase 2 — Threat Modeling:** Systematically evaluate against all four focus areas (Logic Gaps, Security Vulnerabilities via STRIDE, Edge Cases, Scalability Issues).
+6. **Phase 3 — Exploitation Scenarios:** For each substantiated vulnerability, write a concrete step-by-step attack or failure scenario with preconditions.
+7. **False-positive pass:** Remove or downgrade findings that lack evidence, duplicate another root cause, or depend on assumptions the spec already rules out.
+8. **Write** the findings file to `docs/security/redteam-findings-FEATURE.md` using the markdown template above.
+9. **Produce structured output** for pipeline integration (see below).
 
 ---
 
@@ -237,7 +268,11 @@ In addition to the written findings file, produce structured text output for pip
 
 Each finding MUST reference a specific section of the specification. Vague findings without references are useless for remediation.
 
-If zero `[CRITICAL]` findings after verification, append `RALPH_EXIT` on the absolute last line of your response.
+Each structured line MUST summarize a finding that also exists in the markdown findings file. Do not include unfiled drive-by observations in the terminal-only output.
+
+If zero `[CRITICAL]` findings, append `RALPH_EXIT` on the absolute last line of your response. Warnings and info findings may still be present above it.
+
+If there are no findings at all, output one `[INFO]` line stating that no vulnerabilities were found after systematic review, then append `RALPH_EXIT`.
 
 ---
 
@@ -246,11 +281,12 @@ If zero `[CRITICAL]` findings after verification, append `RALPH_EXIT` on the abs
 After implementation or remediation, ALWAYS re-run the audit:
 
 1. Re-read the updated specification.
-2. Re-evaluate against all four focus areas.
-3. For each previously-found vulnerability, verify it is resolved and update status.
-4. Confirm no new regressions introduced by changes.
-5. Update the findings file — mark resolved items with `~~strikethrough~~` or an `[RESOLVED]` tag.
-6. Produce updated structured output reflecting current state.
+2. Re-read the existing findings file if it exists.
+3. Re-evaluate against all four focus areas.
+4. For each previously-found vulnerability, verify it is resolved and update status.
+5. Confirm no new regressions introduced by changes.
+6. Update the findings file in place — mark resolved items with `~~strikethrough~~` or an `[RESOLVED]` tag. Do not blindly overwrite historical findings during verification.
+7. Produce updated structured output reflecting current state.
 
 If zero `[CRITICAL]` findings after verification, append `RALPH_EXIT` on the last line of your response.
 
@@ -260,12 +296,14 @@ If zero `[CRITICAL]` findings after verification, append `RALPH_EXIT` on the las
 
 When invoked:
 1. ✅ Read the full `target_file` markdown specification.
-2. ✅ Map entry points, assets, and trust boundaries.
-3. ✅ Scan for logic gaps — incomplete flows, missing error handling.
-4. ✅ Apply STRIDE threat model to security design decisions.
-5. ✅ Identify edge cases — boundaries, concurrency, localization.
-6. ✅ Evaluate scalability — queries, single points of failure, limits.
-7. ✅ Write findings to `docs/security/redteam-findings-FEATURE.md`.
-8. ✅ Output structured `[CRITICAL]`/`[WARNING]`/`[INFO]` tokens for pipeline.
+2. ✅ Inspect relevant implementation files, tests, prior specs, and integrations where available.
+3. ✅ Map entry points, assets, trust boundaries, actors, data flows, and dependencies.
+4. ✅ Scan for logic gaps — incomplete flows, missing error handling.
+5. ✅ Apply STRIDE threat model to security design decisions.
+6. ✅ Identify edge cases — boundaries, concurrency, localization.
+7. ✅ Evaluate scalability — queries, single points of failure, limits.
+8. ✅ Deduplicate, calibrate severity, and remove unsupported findings.
+9. ✅ Write findings to `docs/security/redteam-findings-FEATURE.md`.
+10. ✅ Output structured `[CRITICAL]`/`[WARNING]`/`[INFO]` tokens for pipeline.
 
 **Remember**: A silent review is a failed review. If you find nothing notable, say so explicitly — "No vulnerabilities found after systematic review across all four focus areas" is a valid output. Still produce the findings file with a clean status and green callout confirming no issues detected.

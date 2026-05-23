@@ -1,22 +1,59 @@
 ---
 name: generate-spec
-description: Generates a structured MARKDOWN engineering specification (PRD/RFC) for a new feature or project. Outputs to `docs/specs/FEATURE.md` with clear section headings, Mermaid diagrams, and tables. Markdown enables easy patching with red team findings and targeted updates later. Use when the user wants to plan, design, or write a spec before coding.
+description: Interviews the user first, then generates a structured MARKDOWN engineering specification (PRD/RFC) for a new feature or project. Outputs to `docs/specs/FEATURE.md` with clear section headings, Mermaid diagrams, and tables. Markdown enables easy patching with red team findings and targeted updates later. Use when the user wants to plan, design, or write a spec before coding.
 ---
 
 # Spec Generation Skill — Markdown-First Output
 
 ## Goal
-Create a **structured Markdown specification document** at `docs/specs/FEATURE.md` that uses clear section headings, Mermaid diagrams, and tables to make complex technical concepts immediately understandable. The output must be easy to patch later with red team findings or revisions using targeted `edit` calls.
+Interview the user before drafting, then create a **structured Markdown specification document** at `docs/specs/FEATURE.md` that uses clear section headings, Mermaid diagrams, and tables to make complex technical concepts immediately understandable. The output must be easy to patch later with red team findings or revisions using targeted `edit` calls.
 
 ## Process
 
-### 1. Context Gathering
-*   Ask the user for the high-level goal of the feature.
-*   Scan the current directory (`ls -R`) and read relevant files to understand architecture.
-*   Identify key constraints, dependencies, and integrations.
-*   Ask: "What's the hardest part about this feature? What would trip up someone reviewing this spec?"
+### 1. Interview First
+Do not create or finalize the spec until the interview is complete and the user has confirmed the summarized brief, unless the user explicitly says to proceed with stated assumptions.
 
-### 2. Visual Strategy (in Markdown)
+Start with a focused interview based on the user's prompt and any immediately available project context. Do not ask stock discovery questions or present a generic questionnaire.
+
+Ask only targeted questions that would materially change the technical spec. Derive them from gaps, ambiguities, and risks in the provided context, such as:
+
+- Undefined behavior at system boundaries, state transitions, data ownership, or failure modes
+- Missing acceptance criteria for the specific feature behavior the user described
+- Unclear integration points with existing files, APIs, services, storage, or deployment paths
+- Technical constraints that could change the design: compatibility, security, performance, migration, observability, rollout, or test environment limits
+- Review-sensitive decisions where multiple plausible implementations would produce different specs
+
+Prefer 3-6 high-signal questions per round. Each question should name the specific part of the feature or codebase it is clarifying. If an answer can be inferred safely from the prompt or repository, document it as an assumption instead of asking.
+
+If answers are incomplete, ask a short follow-up round focused only on blockers to writing a technically useful spec.
+
+### 2. Context Gathering
+After the initial interview, scan the current directory and read relevant files to understand architecture. Prefer `rg --files` over recursive directory dumps when available.
+
+Identify and reconcile:
+
+- Existing implementation patterns and ownership boundaries
+- Key constraints, dependencies, and integrations
+- Existing specs or related documentation
+- Environment constraints that must affect implementation or testing
+- Mismatches between user expectations and codebase reality
+
+Ask follow-up questions only when the answer changes the spec materially. Otherwise, document assumptions and open questions in the draft.
+
+### 3. Confirmed Spec Brief
+Before drafting the final spec, present a concise brief and ask the user to confirm it is accurate enough to write:
+
+- Problem and desired outcome
+- Users / stakeholders
+- In-scope and out-of-scope work
+- Proposed direction and major alternatives
+- Acceptance criteria and validation strategy
+- Constraints, risks, and unknowns
+- Target spec filename
+
+If the user confirms, draft the spec. If the user corrects the brief, update the brief first. If the user asks to proceed without confirmation, mark unverified items as assumptions or open questions.
+
+### 4. Visual Strategy (in Markdown)
 Before writing content, decide which visual elements will communicate best:
 
 | Concept | Markdown Treatment |
@@ -29,7 +66,7 @@ Before writing content, decide which visual elements will communicate best:
 | Edge cases & risks | Risk assessment table (likelihood × impact + mitigation) |
 | Trade-offs / decisions | Side-by-side comparison table |
 
-### 3. Drafting the Spec
+### 5. Drafting the Spec
 Create a file at `docs/specs/FEATURE_NAME.md`. Use the template below and **fill every placeholder**.
 
 Before drafting, identify and document environment constraints:
@@ -92,12 +129,12 @@ test -f docs/specs/FEATURE_NAME.md && echo EXISTS || echo MISSING
 - Label diagrams so they stand alone with a caption line below each Mermaid block
 - Keep tables narrow and scannable
 
-### 4. Review Loop
+### 6. Review Loop
 *   Ask: "Walk me through the spec — does the architecture diagram match your mental model?"
 *   Iterate on both content and clarity until approved.
-*   For each iteration, use targeted `edit` calls (see Chunk 3 guidance) — never rewrite the entire file.
+*   For each iteration, use targeted `edit` calls (see drafting guidance) — never rewrite the entire file.
 
-### 5. Handoff
+### 7. Handoff
 *   Set status to `approved` in the YAML front matter.
 *   Create initial `.ralph/dev-cycle-[FEATURE].md` checklist at repo root with feature prompt and blank iteration log.
 *   Ask if the user is ready to begin implementation based *strictly* on this spec.
